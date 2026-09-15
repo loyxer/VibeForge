@@ -49,7 +49,13 @@ class GeminiGenerator(SiteGenerator):
                     model=_MODEL,
                     contents=contents,
                 )
-                return GenerationResult(html=_extract_html(response.text))
+                html = _extract_html(response.text or "")
+                if not html:
+                    raise RuntimeError(
+                        "Gemini returned an empty response — try rephrasing "
+                        "the request."
+                    )
+                return GenerationResult(html=html)
             except Exception as e:  # noqa: BLE001 - SDK error types vary
                 last_error = e
                 if not _is_retryable(e) or attempt == _MAX_RETRIES - 1:
@@ -65,7 +71,14 @@ def _is_retryable(error: Exception) -> bool:
 
 
 def _extract_html(text: str) -> str:
-    # The model sometimes wraps its output in a markdown code fence despite
-    # being told not to — strip it if present.
-    match = re.search(r"```(?:html)?\s*(.*?)```", text, re.DOTALL)
-    return (match.group(1) if match else text).strip()
+    # The model sometimes wraps its whole response in a markdown code fence
+    # despite being told not to — strip it if the *entire* response is
+    # fenced. Deliberately anchored to the start/end (not a mid-text
+    # search): the generated HTML can itself contain ``` sequences (e.g.
+    # inside a JS template literal), and an unanchored search could match
+    # those instead of the real fence, silently truncating the page.
+    text = text.strip()
+    if text.startswith("```"):
+        text = re.sub(r"^```[a-zA-Z]*\n?", "", text)
+        text = re.sub(r"\n?```\s*$", "", text)
+    return text.strip()
