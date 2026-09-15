@@ -10,7 +10,7 @@ from google import genai
 
 from .base import GenerationRequest, GenerationResult, SiteGenerator
 
-_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
 
 _SYSTEM_PROMPT = """You are a website generator. Given a description, output
 a single complete, self-contained HTML document: inline <style> and
