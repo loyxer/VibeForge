@@ -5,10 +5,14 @@ Get a free key at https://aistudio.google.com/apikey.
 """
 import os
 import re
+import time
 
 from google import genai
 
 from .base import GenerationRequest, GenerationResult, SiteGenerator
+
+_MAX_RETRIES = 3
+_RETRYABLE_MARKERS = ("503", "UNAVAILABLE", "overloaded", "high demand")
 
 _MODEL = os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
 
@@ -36,11 +40,28 @@ class GeminiGenerator(SiteGenerator):
             parts.append(f"Existing HTML:\n{request.previous_html}")
         parts.append(f"Instruction: {request.prompt}")
 
-        response = self._client.models.generate_content(
-            model=_MODEL,
-            contents="\n\n".join(parts),
-        )
-        return GenerationResult(html=_extract_html(response.text))
+        contents = "\n\n".join(parts)
+
+        last_error: Exception | None = None
+        for attempt in range(_MAX_RETRIES):
+            try:
+                response = self._client.models.generate_content(
+                    model=_MODEL,
+                    contents=contents,
+                )
+                return GenerationResult(html=_extract_html(response.text))
+            except Exception as e:  # noqa: BLE001 - SDK error types vary
+                last_error = e
+                if not _is_retryable(e) or attempt == _MAX_RETRIES - 1:
+                    raise
+                time.sleep(2**attempt)  # 1s, 2s, 4s
+
+        raise last_error  # unreachable, satisfies type checkers
+
+
+def _is_retryable(error: Exception) -> bool:
+    message = str(error)
+    return any(marker in message for marker in _RETRYABLE_MARKERS)
 
 
 def _extract_html(text: str) -> str:
