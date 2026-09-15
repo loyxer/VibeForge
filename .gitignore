@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Node
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Secrets
+.env
+
+# Project data (regenerated / local history)
+backend/data/*.json
+
+# OS
+.DS_Store
