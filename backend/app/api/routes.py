@@ -69,6 +69,15 @@ async def get_project(project_id: str):
         raise HTTPException(status_code=404, detail="Project not found")
 
 
+@router.delete("/projects/{project_id}")
+async def delete_project(project_id: str):
+    try:
+        projects.delete_project(project_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return {"status": "deleted"}
+
+
 @router.get("/projects/{project_id}/download")
 async def download_project(project_id: str):
     try:

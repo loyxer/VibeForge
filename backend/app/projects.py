@@ -56,3 +56,12 @@ def list_projects() -> list[dict[str, Any]]:
     with _lock:
         data = _read()
         return [{"id": pid, "history": p["history"]} for pid, p in data.items()]
+
+
+def delete_project(project_id: str) -> None:
+    with _lock:
+        data = _read()
+        if project_id not in data:
+            raise KeyError(project_id)
+        del data[project_id]
+        _write(data)

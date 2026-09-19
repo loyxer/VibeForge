@@ -46,6 +46,14 @@ export default function App() {
     )
   }
 
+  function handleGalleryDelete(deletedId: string) {
+    if (deletedId === projectId) {
+      setProjectId(null)
+      setHtml(null)
+      setMessages([])
+    }
+  }
+
   return (
     <div className="app">
       <header>
@@ -56,7 +64,11 @@ export default function App() {
       <main>
         <div className="sidebar">
           <Chat messages={messages} loading={loading} onSend={handleSend} />
-          <Gallery refreshKey={galleryVersion} onSelect={handleGallerySelect} />
+          <Gallery
+            refreshKey={galleryVersion}
+            onSelect={handleGallerySelect}
+            onDelete={handleGalleryDelete}
+          />
         </div>
         <div>
           <Preview html={html} />
