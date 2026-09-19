@@ -2,6 +2,7 @@ import { useState } from 'react'
 import Chat, { ChatMessage } from './components/Chat'
 import Preview from './components/Preview'
 import Gallery, { GallerySelection } from './components/Gallery'
+import { apiUrl } from './api'
 
 export default function App() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -15,7 +16,7 @@ export default function App() {
     setLoading(true)
 
     try {
-      const res = await fetch('/api/generate', {
+      const res = await fetch(apiUrl('/api/generate'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt, project_id: projectId }),
@@ -75,7 +76,7 @@ export default function App() {
           {projectId && (
             <a
               className="download-link"
-              href={`/api/projects/${projectId}/download`}
+              href={apiUrl(`/api/projects/${projectId}/download`)}
               download
             >
               Download HTML

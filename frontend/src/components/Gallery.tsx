@@ -1,4 +1,5 @@
 import { MouseEvent, useEffect, useState } from 'react'
+import { apiUrl } from '../api'
 
 type GalleryItem = {
   id: string
@@ -21,14 +22,14 @@ export default function Gallery({ refreshKey, onSelect, onDelete }: Props) {
   const [items, setItems] = useState<GalleryItem[]>([])
 
   useEffect(() => {
-    fetch('/api/projects')
+    fetch(apiUrl('/api/projects'))
       .then((res) => res.json())
       .then((data) => setItems(data.items ?? []))
       .catch(() => setItems([]))
   }, [refreshKey])
 
   async function handleClick(id: string) {
-    const res = await fetch(`/api/projects/${id}`)
+    const res = await fetch(apiUrl(`/api/projects/${id}`))
     if (!res.ok) return
     const data = await res.json()
     onSelect({ projectId: id, html: data.html, history: data.history ?? [] })
@@ -36,7 +37,7 @@ export default function Gallery({ refreshKey, onSelect, onDelete }: Props) {
 
   async function handleDelete(event: MouseEvent, id: string) {
     event.stopPropagation()
-    await fetch(`/api/projects/${id}`, { method: 'DELETE' })
+    await fetch(apiUrl(`/api/projects/${id}`), { method: 'DELETE' })
     setItems((prev) => prev.filter((item) => item.id !== id))
     onDelete?.(id)
   }
