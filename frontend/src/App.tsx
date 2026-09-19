@@ -1,12 +1,14 @@
 import { useState } from 'react'
 import Chat, { ChatMessage } from './components/Chat'
 import Preview from './components/Preview'
+import Gallery, { GallerySelection } from './components/Gallery'
 
 export default function App() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [html, setHtml] = useState<string | null>(null)
   const [projectId, setProjectId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [galleryVersion, setGalleryVersion] = useState(0)
 
   async function handleSend(prompt: string) {
     setMessages((m) => [...m, { role: 'user', text: prompt }])
@@ -24,12 +26,24 @@ export default function App() {
       setHtml(data.html)
       setProjectId(data.project_id)
       setMessages((m) => [...m, { role: 'assistant', text: 'Done — updated the preview.' }])
+      setGalleryVersion((v) => v + 1)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Generation failed'
       setMessages((m) => [...m, { role: 'assistant', text: `Error: ${message}` }])
     } finally {
       setLoading(false)
     }
+  }
+
+  function handleGallerySelect(selection: GallerySelection) {
+    setProjectId(selection.projectId)
+    setHtml(selection.html)
+    setMessages(
+      selection.history.flatMap((prompt) => [
+        { role: 'user' as const, text: prompt },
+        { role: 'assistant' as const, text: 'Done — updated the preview.' },
+      ]),
+    )
   }
 
   return (
@@ -40,7 +54,10 @@ export default function App() {
       </header>
 
       <main>
-        <Chat messages={messages} loading={loading} onSend={handleSend} />
+        <div className="sidebar">
+          <Chat messages={messages} loading={loading} onSend={handleSend} />
+          <Gallery refreshKey={galleryVersion} onSelect={handleGallerySelect} />
+        </div>
         <div>
           <Preview html={html} />
           {projectId && (
