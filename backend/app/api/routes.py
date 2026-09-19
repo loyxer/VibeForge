@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 from app import projects
 from app.generation.base import GenerationRequest, SiteGenerator
+from app.generation.gemini import QuotaExceededError
 
 logger = logging.getLogger("vibeforge")
 
@@ -47,6 +48,9 @@ async def generate(body: GenerateBody):
     request = GenerationRequest(prompt=body.prompt, previous_html=previous_html)
     try:
         result = _generator.generate(request)
+    except QuotaExceededError as e:
+        logger.warning("Gemini daily quota exceeded")
+        raise HTTPException(status_code=429, detail=str(e))
     except Exception as e:
         logger.exception("Generation failed (%s): %s", type(e).__name__, e)
         raise HTTPException(status_code=500, detail=f"{type(e).__name__}: {e}")

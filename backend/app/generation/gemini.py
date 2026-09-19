@@ -13,8 +13,13 @@ from .base import GenerationRequest, GenerationResult, SiteGenerator
 
 _MAX_RETRIES = 5
 _RETRYABLE_MARKERS = ("503", "UNAVAILABLE", "overloaded", "high demand")
+_QUOTA_MARKER = "RESOURCE_EXHAUSTED"
 
 _MODEL = os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
+
+
+class QuotaExceededError(RuntimeError):
+    """Gemini's free-tier daily request quota is used up for today."""
 
 _SYSTEM_PROMPT = """You are a website generator. Given a description, output
 a single complete, self-contained HTML document: inline <style> and
@@ -67,6 +72,13 @@ class GeminiGenerator(SiteGenerator):
                 return GenerationResult(html=html)
             except Exception as e:  # noqa: BLE001 - SDK error types vary
                 last_error = e
+                if _QUOTA_MARKER in str(e):
+                    # Daily cap, not a transient overload — retrying won't
+                    # help until it resets, so fail fast with a clear reason.
+                    raise QuotaExceededError(
+                        "Daily free generation limit reached — try again "
+                        "tomorrow."
+                    ) from e
                 if not _is_retryable(e) or attempt == _MAX_RETRIES - 1:
                     raise
                 time.sleep(2**attempt)  # 1s, 2s, 4s
