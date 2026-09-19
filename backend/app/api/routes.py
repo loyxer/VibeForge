@@ -1,3 +1,4 @@
+import logging
 import os
 from typing import Optional
 
@@ -6,6 +7,8 @@ from pydantic import BaseModel
 
 from app import projects
 from app.generation.base import GenerationRequest, SiteGenerator
+
+logger = logging.getLogger("vibeforge")
 
 router = APIRouter()
 
@@ -45,7 +48,8 @@ async def generate(body: GenerateBody):
     try:
         result = _generator.generate(request)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.exception("Generation failed (%s): %s", type(e).__name__, e)
+        raise HTTPException(status_code=500, detail=f"{type(e).__name__}: {e}")
 
     if body.project_id:
         projects.update_project(body.project_id, result.html, body.prompt)
