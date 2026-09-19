@@ -11,7 +11,7 @@ from google import genai
 
 from .base import GenerationRequest, GenerationResult, SiteGenerator
 
-_MAX_RETRIES = 3
+_MAX_RETRIES = 5
 _RETRYABLE_MARKERS = ("503", "UNAVAILABLE", "overloaded", "high demand")
 
 _MODEL = os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
