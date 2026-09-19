@@ -21,7 +21,16 @@ a single complete, self-contained HTML document: inline <style> and
 <script>, no external files, no explanations, no markdown code fences —
 just the raw HTML starting with <!doctype html>. If existing HTML is
 provided, edit it to satisfy the new instruction instead of starting over,
-preserving everything the instruction didn't ask to change."""
+preserving everything the instruction didn't ask to change.
+
+This is a SINGLE page — there are no other pages or files to link to.
+Never use <a href> or forms pointing at other HTML files, real external
+URLs, or routes ("shop.html", "/about", "https://..."); clicking those in
+the preview just shows a blank page. Every interactive element must do
+something inside this same document instead: scroll to an in-page section
+(href="#section-id"), toggle/reveal content via inline JS, open a modal
+built into the page, etc. If a button doesn't have a real in-page action,
+make it visually inert (no href, no onclick) rather than a dead link."""
 
 
 class GeminiGenerator(SiteGenerator):
