@@ -16,12 +16,24 @@ export default function App() {
     setLoading(true)
 
     try {
-      const res = await fetch(apiUrl('/api/generate'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, project_id: projectId }),
-      })
-      const data = await res.json()
+      const post = (id: string | null) =>
+        fetch(apiUrl('/api/generate'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt, project_id: id }),
+        })
+
+      let res = await post(projectId)
+      let data = await res.json()
+
+      if (res.status === 404 && projectId) {
+        // The backend lost this project (e.g. a free-tier restart wiped its
+        // storage) but we still remember its id — start a fresh one instead
+        // of failing on an edit the server can no longer make sense of.
+        res = await post(null)
+        data = await res.json()
+      }
+
       if (!res.ok) throw new Error(data.detail ?? `Server error: ${res.status}`)
 
       setHtml(data.html)
