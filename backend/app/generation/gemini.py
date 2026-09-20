@@ -21,6 +21,7 @@ _MODEL = os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
 class QuotaExceededError(RuntimeError):
     """Gemini's free-tier daily request quota is used up for today."""
 
+
 _SYSTEM_PROMPT = """You are a website generator. Given a description, output
 a single complete, self-contained HTML document: inline <style> and
 <script>, no external files, no explanations, no markdown code fences —
@@ -35,7 +36,26 @@ the preview just shows a blank page. Every interactive element must do
 something inside this same document instead: scroll to an in-page section
 (href="#section-id"), toggle/reveal content via inline JS, open a modal
 built into the page, etc. If a button doesn't have a real in-page action,
-make it visually inert (no href, no onclick) rather than a dead link."""
+make it visually inert (no href, no onclick) rather than a dead link.
+
+The page renders inside a sandboxed iframe with no access to its own
+origin. Never use localStorage, sessionStorage, indexedDB, or cookies —
+reading or writing them throws an error there and can silently stop the
+rest of the page's JavaScript from running. Keep any "remember this"
+behavior in a plain in-memory JS variable instead, scoped to the current
+page view.
+
+For images, never reference a local or made-up file path (e.g. "photo.jpg",
+"logo.png") — it won't exist and will show as broken. Instead use inline
+SVG, CSS (gradients, shapes, icons via Unicode/emoji), or real hotlinkable
+photo URLs from https://picsum.photos/<width>/<height> (optionally
+https://picsum.photos/seed/<word>/<width>/<height> for a stable image).
+
+Make it look like a real, finished product, not a wireframe: a clear
+visual hierarchy, generous spacing, a coherent color palette and
+typography, and modern CSS (flexbox/grid, rounded corners, subtle shadows
+or gradients where they fit the theme) rather than default browser
+styling."""
 
 
 class GeminiGenerator(SiteGenerator):
