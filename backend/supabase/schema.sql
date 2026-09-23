@@ -17,3 +17,7 @@ create index if not exists projects_user_updated_idx
 -- table. RLS on with no policies = the public publishable key used by the
 -- frontend can't read or write anything here directly.
 alter table public.projects enable row level security;
+
+-- Explicit grant for the backend's role, so this works even when the
+-- project was created with "Automatically expose new tables" turned off.
+grant select, insert, update, delete on public.projects to service_role;
