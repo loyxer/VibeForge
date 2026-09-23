@@ -15,6 +15,14 @@ body {
   padding: 2rem 1.5rem 4rem;
 }
 
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
 header h1 {
   margin-bottom: 0.25rem;
 }
@@ -152,6 +160,9 @@ main {
 
 .download-link {
   display: inline-block;
+  background: none;
+  font-family: inherit;
+  cursor: pointer;
   margin-top: 0.75rem;
   color: #9fb8f0;
   font-size: 0.85rem;
@@ -251,4 +262,64 @@ main {
   font-size: 0.7rem;
   color: #6a6f7a;
   flex-shrink: 0;
+}
+
+.account {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+  font-size: 0.85rem;
+}
+
+.account__email {
+  color: #9a9ea8;
+}
+
+.account button {
+  background: none;
+  border: 1px solid #2c303a;
+  border-radius: 8px;
+  color: #f2f2f2;
+  padding: 0.4rem 0.75rem;
+  font: inherit;
+  cursor: pointer;
+}
+
+.account button:hover {
+  background: #1c1f27;
+}
+
+.sign-in {
+  max-width: 420px;
+  margin: 4rem auto 0;
+  padding: 2rem;
+  background: #1c1f27;
+  border: 1px solid #2c303a;
+  border-radius: 12px;
+  text-align: center;
+}
+
+.sign-in h2 {
+  margin-top: 0;
+}
+
+.sign-in p {
+  color: #9a9ea8;
+  font-size: 0.9rem;
+}
+
+.sign-in__google {
+  margin-top: 1rem;
+  background: #5b8def;
+  border: none;
+  border-radius: 8px;
+  color: white;
+  padding: 0.7rem 1.4rem;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+.sign-in__error {
+  color: #f26666 !important;
 }

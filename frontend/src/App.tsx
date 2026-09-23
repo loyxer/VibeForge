@@ -1,10 +1,55 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import type { Session } from '@supabase/supabase-js'
 import Chat, { ChatMessage } from './components/Chat'
 import Preview from './components/Preview'
 import Gallery, { GallerySelection } from './components/Gallery'
-import { apiUrl } from './api'
+import SignIn from './components/SignIn'
+import { apiFetch } from './api'
+import { supabase } from './supabase'
 
 export default function App() {
+  const [session, setSession] = useState<Session | null>(null)
+  // Without Supabase configured there are no accounts, so nothing to wait for.
+  const [authReady, setAuthReady] = useState(!supabase)
+
+  useEffect(() => {
+    if (!supabase) return
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session)
+      setAuthReady(true)
+    })
+    const { data } = supabase.auth.onAuthStateChange((_event, s) => setSession(s))
+    return () => data.subscription.unsubscribe()
+  }, [])
+
+  return (
+    <div className="app">
+      <header>
+        <div>
+          <h1>VibeForge</h1>
+          <p>Describe a site in plain words — watch it build, live.</p>
+        </div>
+        {session && (
+          <div className="account">
+            <span className="account__email">{session.user.email}</span>
+            <button type="button" onClick={() => supabase?.auth.signOut()}>
+              Sign out
+            </button>
+          </div>
+        )}
+      </header>
+
+      {!authReady ? null : supabase && !session ? (
+        <SignIn />
+      ) : (
+        // Keyed by user so signing in as someone else starts from a clean slate.
+        <Workspace key={session?.user.id ?? 'local'} />
+      )}
+    </div>
+  )
+}
+
+function Workspace() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [html, setHtml] = useState<string | null>(null)
   const [projectId, setProjectId] = useState<string | null>(null)
@@ -17,7 +62,7 @@ export default function App() {
 
     try {
       const post = (id: string | null) =>
-        fetch(apiUrl('/api/generate'), {
+        apiFetch('/api/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ prompt, project_id: id }),
@@ -67,35 +112,36 @@ export default function App() {
     }
   }
 
-  return (
-    <div className="app">
-      <header>
-        <h1>VibeForge</h1>
-        <p>Describe a site in plain words — watch it build, live.</p>
-      </header>
+  // Built from the HTML already on screen: a plain link to the backend
+  // couldn't carry the sign-in token.
+  function handleDownload() {
+    if (!html) return
+    const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }))
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `${projectId ?? 'site'}.html`
+    link.click()
+    URL.revokeObjectURL(url)
+  }
 
-      <main>
-        <div className="sidebar">
-          <Chat messages={messages} loading={loading} onSend={handleSend} />
-          <Gallery
-            refreshKey={galleryVersion}
-            onSelect={handleGallerySelect}
-            onDelete={handleGalleryDelete}
-          />
-        </div>
-        <div>
-          <Preview html={html} />
-          {projectId && (
-            <a
-              className="download-link"
-              href={apiUrl(`/api/projects/${projectId}/download`)}
-              download
-            >
-              Download HTML
-            </a>
-          )}
-        </div>
-      </main>
-    </div>
+  return (
+    <main>
+      <div className="sidebar">
+        <Chat messages={messages} loading={loading} onSend={handleSend} />
+        <Gallery
+          refreshKey={galleryVersion}
+          onSelect={handleGallerySelect}
+          onDelete={handleGalleryDelete}
+        />
+      </div>
+      <div>
+        <Preview html={html} />
+        {html && (
+          <button type="button" className="download-link" onClick={handleDownload}>
+            Download HTML
+          </button>
+        )}
+      </div>
+    </main>
   )
 }

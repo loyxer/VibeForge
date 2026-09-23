@@ -17,3 +17,6 @@ backend/data/*.json
 
 # OS
 .DS_Store
+
+# Local frontend env (Supabase URL / publishable key)
+.env.local

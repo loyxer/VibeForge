@@ -8,7 +8,9 @@
 vibeforge/
   backend/    FastAPI-сервер: приймає промпт, викликає генератор, зберігає проєкти
     app/generation/   інтерфейс SiteGenerator + реалізації (mock зараз, Gemini — реальна)
-    app/projects.py   історія проєктів (JSON-файл, поки без справжньої БД)
+    app/projects.py   історія проєктів: Supabase Postgres (або локальний JSON-файл без ключів)
+    app/auth.py       хто робить запит: сесія Google-входу через Supabase Auth
+    supabase/schema.sql  схема бази — один раз запустити в Supabase SQL Editor
   frontend/   React: чат зліва, live-прев'ю в iframe справа
 ```
 
@@ -59,6 +61,26 @@ npm run dev
 Відкрити http://localhost:5173 — опиши сайт у чаті зліва, прев'ю з'явиться справа.
 Уточнюй наступними повідомленнями ("зроби кнопку синьою") — модель редагує
 попередній HTML, а не починає з нуля.
+
+## Акаунти й база даних (Supabase)
+
+Без ключів Supabase все працює як раніше: без входу, проєкти в
+`backend/data/projects.json`. З ключами — вхід через Google, у кожного
+користувача свої проєкти в Postgres, і вони не зникають при рестарті Render.
+
+1. Проєкт на supabase.com → SQL Editor → вставити `backend/supabase/schema.sql` → Run
+2. Authentication → Sign In / Providers → Google: увімкнути, вставити Client ID
+   і Client Secret з Google Cloud (OAuth client типу "Web application", з
+   Authorized redirect URI `https://<project>.supabase.co/auth/v1/callback`)
+3. Authentication → URL Configuration: Site URL = адреса фронтенду, у Redirect
+   URLs додати ще `http://localhost:5173`
+4. Змінні середовища:
+   - бекенд (`backend/.env` / Render): `SUPABASE_URL`, `SUPABASE_SECRET_KEY`
+   - фронтенд (`frontend/.env.local` / Vercel): `VITE_SUPABASE_URL`,
+     `VITE_SUPABASE_PUBLISHABLE_KEY`
+
+Вмикати ключі треба на обох сторонах разом: бекенд із ключами вимагає вхід,
+а фронтенд без них вхід не покаже.
 
 ## Публікація в інтернет
 
