@@ -2,24 +2,57 @@
 
 Setup: put GEMINI_API_KEY=... in backend/.env (gitignored, never commit it).
 Get a free key at https://aistudio.google.com/apikey.
+
+The free tier caps each model separately (e.g. 20 requests/day for every
+Flash model, 500/day for the Flash Lite ones — see AI Studio → Rate
+Limit), so instead of one model we walk a chain from best to cheapest:
+when a model's quota is used up we move on to the next one.
 """
+import logging
 import os
 import re
+import threading
 import time
 
 from google import genai
 
 from .base import GenerationRequest, GenerationResult, SiteGenerator
 
-_MAX_RETRIES = 5
+logger = logging.getLogger("vibeforge")
+
+# Best first. Override with GEMINI_MODELS="model-a,model-b" if needed.
+_DEFAULT_MODELS = (
+    "gemini-3.8-flash",
+    "gemini-3.7-flash",
+    "gemini-3.6-flash",
+    "gemini-3.5-flash",
+    "gemini-3-flash-preview",
+    "gemini-2.5-flash",
+    "gemini-3.5-flash-lite",
+    "gemini-3.1-flash-lite",
+)
+_MODELS = tuple(
+    m.strip()
+    for m in os.getenv("GEMINI_MODELS", ",".join(_DEFAULT_MODELS)).split(",")
+    if m.strip()
+)
+
+# A model answering 503 "high demand" gets no retry: with a whole chain of
+# models it's faster to move on, and we skip it for a bit so the next
+# users don't wait on it either.
+_SKIP_AFTER_OVERLOAD = 2 * 60
 _RETRYABLE_MARKERS = ("503", "UNAVAILABLE", "overloaded", "high demand")
 _QUOTA_MARKER = "RESOURCE_EXHAUSTED"
 
-_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
+# How long to skip a model after it reports its quota is used up. A daily
+# cap resets at midnight Pacific; rechecking hourly costs one fast failed
+# call and saves us from timezone bookkeeping.
+_SKIP_AFTER_DAILY_CAP = 60 * 60
+_SKIP_AFTER_MINUTE_CAP = 60
 
 
 class QuotaExceededError(RuntimeError):
-    """Gemini's free-tier daily request quota is used up for today."""
+    """Every model in the chain has used up its free-tier quota."""
 
 
 _SYSTEM_PROMPT = """You are a website generator. Given a description, output
@@ -59,51 +92,87 @@ styling."""
 
 
 class GeminiGenerator(SiteGenerator):
-    def __init__(self) -> None:
-        api_key = os.getenv("GEMINI_API_KEY")
-        if not api_key:
-            raise RuntimeError(
-                "GEMINI_API_KEY not set — add it to backend/.env "
-                "(see README for how to get a free key)."
-            )
-        self._client = genai.Client(api_key=api_key)
+    def __init__(self, client=None, models: tuple[str, ...] = _MODELS) -> None:
+        if client is None:
+            api_key = os.getenv("GEMINI_API_KEY")
+            if not api_key:
+                raise RuntimeError(
+                    "GEMINI_API_KEY not set — add it to backend/.env "
+                    "(see README for how to get a free key)."
+                )
+            client = genai.Client(api_key=api_key)
+        self._client = client
+        self._models = models
+        # model -> time.monotonic() until which we don't bother trying it
+        # (out of quota, overloaded, or no longer exists)
+        self._skip_until: dict[str, float] = {}
+        self._lock = threading.Lock()
 
     def generate(self, request: GenerationRequest) -> GenerationResult:
         parts = [_SYSTEM_PROMPT]
         if request.previous_html:
             parts.append(f"Existing HTML:\n{request.previous_html}")
         parts.append(f"Instruction: {request.prompt}")
-
         contents = "\n\n".join(parts)
 
         last_error: Exception | None = None
-        for attempt in range(_MAX_RETRIES):
+        for model in self._available_models():
             try:
-                response = self._client.models.generate_content(
-                    model=_MODEL,
-                    contents=contents,
-                )
-                html = _extract_html(response.text or "")
-                if not html:
-                    raise RuntimeError(
-                        "Gemini returned an empty response — try rephrasing "
-                        "the request."
-                    )
+                html = self._generate_with(model, contents)
+                logger.info("Generated with %s", model)
                 return GenerationResult(html=html)
             except Exception as e:  # noqa: BLE001 - SDK error types vary
                 last_error = e
                 if _QUOTA_MARKER in str(e):
-                    # Daily cap, not a transient overload — retrying won't
-                    # help until it resets, so fail fast with a clear reason.
-                    raise QuotaExceededError(
-                        "Daily free generation limit reached — try again "
-                        "tomorrow."
-                    ) from e
-                if not _is_retryable(e) or attempt == _MAX_RETRIES - 1:
-                    raise
-                time.sleep(2**attempt)  # 1s, 2s, 4s
+                    self._mark_exhausted(model, e)
+                    continue
+                if "NOT_FOUND" in str(e):
+                    # Google retired or renamed this model — don't let one
+                    # stale name in the chain take the whole site down.
+                    logger.error("%s not found, skipping it: %s", model, e)
+                    self._skip(model, _SKIP_AFTER_DAILY_CAP)
+                    continue
+                if _is_retryable(e):
+                    logger.warning("%s overloaded, trying the next model", model)
+                    self._skip(model, _SKIP_AFTER_OVERLOAD)
+                    continue
+                raise
 
-        raise last_error  # unreachable, satisfies type checkers
+        if last_error is None or _QUOTA_MARKER in str(last_error):
+            raise QuotaExceededError(
+                "Daily free generation limit reached — try again tomorrow."
+            ) from last_error
+        raise last_error
+
+    def _generate_with(self, model: str, contents: str) -> str:
+        response = self._client.models.generate_content(model=model, contents=contents)
+        html = _extract_html(response.text or "")
+        if not html:
+            raise RuntimeError(
+                "Gemini returned an empty response — try rephrasing the request."
+            )
+        return html
+
+    def _available_models(self) -> list[str]:
+        now = time.monotonic()
+        with self._lock:
+            available = [m for m in self._models if self._skip_until.get(m, 0) <= now]
+        # Skips are only a shortcut — if every model is currently skipped,
+        # ask them all again rather than failing without asking anyone.
+        return available or list(self._models)
+
+    def _mark_exhausted(self, model: str, error: Exception) -> None:
+        daily = "PerDay" in str(error)
+        skip = _SKIP_AFTER_DAILY_CAP if daily else _SKIP_AFTER_MINUTE_CAP
+        logger.warning(
+            "%s out of %s quota, skipping it for %ds",
+            model, "daily" if daily else "per-minute", skip,
+        )
+        self._skip(model, skip)
+
+    def _skip(self, model: str, seconds: int) -> None:
+        with self._lock:
+            self._skip_until[model] = time.monotonic() + seconds
 
 
 def _is_retryable(error: Exception) -> bool:

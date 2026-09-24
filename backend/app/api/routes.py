@@ -34,8 +34,11 @@ class GenerateBody(BaseModel):
     project_id: Optional[str] = None
 
 
+# Handlers are plain `def`, not `async def`, on purpose: generation and the
+# database calls block for seconds, and FastAPI runs sync handlers in a
+# thread pool — so one user's generation doesn't freeze everyone else.
 @router.post("/generate")
-async def generate(body: GenerateBody, user: str = Depends(current_user)):
+def generate(body: GenerateBody, user: str = Depends(current_user)):
     if not body.prompt.strip():
         raise HTTPException(status_code=400, detail="Prompt is empty")
 
@@ -66,12 +69,12 @@ async def generate(body: GenerateBody, user: str = Depends(current_user)):
 
 
 @router.get("/projects")
-async def list_projects(user: str = Depends(current_user)):
+def list_projects(user: str = Depends(current_user)):
     return {"items": projects.list_projects(user)}
 
 
 @router.get("/projects/{project_id}")
-async def get_project(project_id: str, user: str = Depends(current_user)):
+def get_project(project_id: str, user: str = Depends(current_user)):
     try:
         return projects.get_project(project_id, user)
     except KeyError:
@@ -79,7 +82,7 @@ async def get_project(project_id: str, user: str = Depends(current_user)):
 
 
 @router.delete("/projects/{project_id}")
-async def delete_project(project_id: str, user: str = Depends(current_user)):
+def delete_project(project_id: str, user: str = Depends(current_user)):
     try:
         projects.delete_project(project_id, user)
     except KeyError:

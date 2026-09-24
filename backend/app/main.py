@@ -1,9 +1,19 @@
+import logging
 import os
 from pathlib import Path
 
 from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+
+# Our own log lines (which model generated a site, quota fallbacks, errors)
+# at INFO, without turning on INFO noise from every library.
+_log = logging.getLogger("vibeforge")
+_log.setLevel(logging.INFO)
+_handler = logging.StreamHandler()
+_handler.setFormatter(logging.Formatter("%(levelname)s:     %(message)s"))
+_log.addHandler(_handler)
+_log.propagate = False
 
 from fastapi import FastAPI  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
