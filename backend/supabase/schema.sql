@@ -21,3 +21,18 @@ alter table public.projects enable row level security;
 -- Explicit grant for the backend's role, so this works even when the
 -- project was created with "Automatically expose new tables" turned off.
 grant select, insert, update, delete on public.projects to service_role;
+
+-- One row per successful generation: powers the per-user daily limit
+-- (backend/app/usage.py) and tells us which models are doing the work.
+create table if not exists public.generations (
+  id bigint generated always as identity primary key,
+  user_id uuid not null references auth.users (id) on delete cascade,
+  model text not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists generations_user_created_idx
+  on public.generations (user_id, created_at desc);
+
+alter table public.generations enable row level security;
+grant select, insert on public.generations to service_role;

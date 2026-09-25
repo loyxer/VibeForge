@@ -13,6 +13,7 @@ class GenerationRequest:
 @dataclass
 class GenerationResult:
     html: str
+    model: str = "unknown"  # which model produced it, for usage stats
 
 
 class SiteGenerator(ABC):

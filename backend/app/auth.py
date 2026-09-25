@@ -1,26 +1,20 @@
 """Who is making the request.
 
 With SUPABASE_URL + SUPABASE_SECRET_KEY set, every API call must carry the
-Supabase session token of a signed-in user (Google login on the frontend),
+Supabase session token of a signed-in user (Google or email sign-in),
 and projects are scoped to that user. Without them (plain local dev) auth
 is off and everything belongs to a single "local" user.
 """
-import os
-
 import httpx
 from fastapi import Header, HTTPException
+
+from app import supabase
 
 LOCAL_USER = "local"
 
 
-def supabase_config() -> tuple[str, str] | None:
-    url = os.getenv("SUPABASE_URL", "").rstrip("/")
-    key = os.getenv("SUPABASE_SECRET_KEY", "")
-    return (url, key) if url and key else None
-
-
 async def current_user(authorization: str | None = Header(default=None)) -> str:
-    config = supabase_config()
+    config = supabase.config()
     if config is None:
         return LOCAL_USER
 

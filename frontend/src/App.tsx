@@ -4,7 +4,7 @@ import Chat, { ChatMessage } from './components/Chat'
 import Preview from './components/Preview'
 import Gallery, { GallerySelection } from './components/Gallery'
 import SignIn from './components/SignIn'
-import { apiFetch } from './api'
+import { apiFetch, Usage } from './api'
 import { supabase } from './supabase'
 
 export default function App() {
@@ -55,6 +55,14 @@ function Workspace() {
   const [projectId, setProjectId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [galleryVersion, setGalleryVersion] = useState(0)
+  const [usage, setUsage] = useState<Usage | null>(null)
+
+  useEffect(() => {
+    apiFetch('/api/usage')
+      .then((res) => (res.ok ? res.json() : null))
+      .then(setUsage)
+      .catch(() => setUsage(null))
+  }, [])
 
   async function handleSend(prompt: string) {
     setMessages((m) => [...m, { role: 'user', text: prompt }])
@@ -83,6 +91,7 @@ function Workspace() {
 
       setHtml(data.html)
       setProjectId(data.project_id)
+      setUsage((u) => (u ? { ...u, remaining_today: data.remaining_today } : u))
       setMessages((m) => [...m, { role: 'assistant', text: 'Done — updated the preview.' }])
       setGalleryVersion((v) => v + 1)
     } catch (err) {
@@ -127,7 +136,7 @@ function Workspace() {
   return (
     <main>
       <div className="sidebar">
-        <Chat messages={messages} loading={loading} onSend={handleSend} />
+        <Chat messages={messages} loading={loading} usage={usage} onSend={handleSend} />
         <Gallery
           refreshKey={galleryVersion}
           onSelect={handleGallerySelect}

@@ -5,7 +5,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from app import projects
+from app import projects, usage
 from app.auth import current_user
 from app.generation.base import GenerationRequest, SiteGenerator
 from app.generation.gemini import QuotaExceededError
@@ -42,6 +42,13 @@ def generate(body: GenerateBody, user: str = Depends(current_user)):
     if not body.prompt.strip():
         raise HTTPException(status_code=400, detail="Prompt is empty")
 
+    if usage.remaining_today(user) == 0:
+        raise HTTPException(
+            status_code=429,
+            detail=f"You've used all {usage.DAILY_LIMIT} free generations for "
+            "today — more tomorrow.",
+        )
+
     previous_html = None
     if body.project_id:
         try:
@@ -65,7 +72,17 @@ def generate(body: GenerateBody, user: str = Depends(current_user)):
     else:
         project_id = projects.create_project(user, result.html, body.prompt)
 
-    return {"project_id": project_id, "html": result.html}
+    usage.record(user, result.model)
+    return {
+        "project_id": project_id,
+        "html": result.html,
+        "remaining_today": usage.remaining_today(user),
+    }
+
+
+@router.get("/usage")
+def get_usage(user: str = Depends(current_user)):
+    return {"limit": usage.DAILY_LIMIT or None, "remaining_today": usage.remaining_today(user)}
 
 
 @router.get("/projects")

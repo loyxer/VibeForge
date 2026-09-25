@@ -20,3 +20,6 @@ export async function apiFetch(path: string, init: RequestInit = {}): Promise<Re
   }
   return fetch(apiUrl(path), { ...init, headers })
 }
+
+// Daily generation allowance; nulls mean "no limit".
+export type Usage = { limit: number | null; remaining_today: number | null }

@@ -107,6 +107,16 @@ main {
   border-top: 1px solid #2c303a;
 }
 
+.chat__usage {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #6a6f7a;
+}
+
+.chat__usage--empty {
+  color: #f2b366;
+}
+
 .chat__form textarea {
   background: #12141a;
   border: 1px solid #2c303a;

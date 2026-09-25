@@ -16,20 +16,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-import httpx
-
-from app.auth import LOCAL_USER, supabase_config
+from app import supabase
+from app.auth import LOCAL_USER
+from app.supabase import rest as _rest
 
 # ---------------------------------------------------------------- Supabase
-
-
-def _rest(config: tuple[str, str]) -> httpx.Client:
-    url, key = config
-    return httpx.Client(
-        base_url=f"{url}/rest/v1",
-        headers={"apikey": key, "Authorization": f"Bearer {key}"},
-        timeout=15,
-    )
 
 
 def _as_uuid(project_id: str) -> str:
@@ -143,7 +134,7 @@ def _owned(data: dict[str, Any], project_id: str, owner: str) -> dict[str, Any]:
 
 
 def create_project(owner: str, html: str, prompt: str) -> str:
-    if config := supabase_config():
+    if config := supabase.config():
         return _sb_create(config, owner, html, prompt)
     with _lock:
         data = _read()
@@ -154,7 +145,7 @@ def create_project(owner: str, html: str, prompt: str) -> str:
 
 
 def update_project(project_id: str, owner: str, html: str, prompt: str) -> None:
-    if config := supabase_config():
+    if config := supabase.config():
         return _sb_update(config, project_id, owner, html, prompt)
     with _lock:
         data = _read()
@@ -165,7 +156,7 @@ def update_project(project_id: str, owner: str, html: str, prompt: str) -> None:
 
 
 def get_project(project_id: str, owner: str) -> dict[str, Any]:
-    if config := supabase_config():
+    if config := supabase.config():
         return _sb_get(config, project_id, owner)
     with _lock:
         project = _owned(_read(), project_id, owner)
@@ -173,7 +164,7 @@ def get_project(project_id: str, owner: str) -> dict[str, Any]:
 
 
 def list_projects(owner: str) -> list[dict[str, Any]]:
-    if config := supabase_config():
+    if config := supabase.config():
         return _sb_list(config, owner)
     with _lock:
         return [
@@ -184,7 +175,7 @@ def list_projects(owner: str) -> list[dict[str, Any]]:
 
 
 def delete_project(project_id: str, owner: str) -> None:
-    if config := supabase_config():
+    if config := supabase.config():
         return _sb_delete(config, project_id, owner)
     with _lock:
         data = _read()

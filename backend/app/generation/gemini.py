@@ -120,7 +120,7 @@ class GeminiGenerator(SiteGenerator):
             try:
                 html = self._generate_with(model, contents)
                 logger.info("Generated with %s", model)
-                return GenerationResult(html=html)
+                return GenerationResult(html=html, model=model)
             except Exception as e:  # noqa: BLE001 - SDK error types vary
                 last_error = e
                 if _QUOTA_MARKER in str(e):

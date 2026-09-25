@@ -1,12 +1,13 @@
 """API behaviour in local mode (JSON store, mock generator)."""
 import asyncio
 import time
+from datetime import timedelta
 
 import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from app import projects
+from app import projects, usage
 from app.api import routes
 from app.generation.base import GenerationResult
 from app.main import app
@@ -15,6 +16,7 @@ from app.main import app
 @pytest.fixture(autouse=True)
 def temp_store(tmp_path, monkeypatch):
     monkeypatch.setattr(projects, "_STORE_PATH", tmp_path / "projects.json")
+    monkeypatch.setattr(usage, "_STORE_PATH", tmp_path / "usage.json")
 
 
 @pytest.fixture
@@ -73,3 +75,56 @@ def test_slow_generation_does_not_block_other_requests(monkeypatch):
             return fast_done
 
     assert asyncio.run(run()) < 0.8
+
+
+def test_daily_limit(client, monkeypatch):
+    monkeypatch.setattr(usage, "DAILY_LIMIT", 2)
+    assert client.get("/api/usage").json() == {"limit": 2, "remaining_today": 2}
+
+    first = client.post("/api/generate", json={"prompt": "a"}).json()
+    assert first["remaining_today"] == 1
+    assert client.post("/api/generate", json={"prompt": "b"}).json()["remaining_today"] == 0
+
+    res = client.post("/api/generate", json={"prompt": "c"})
+    assert res.status_code == 429
+    assert "2 free generations" in res.json()["detail"]
+    # Editing an existing site counts too.
+    res = client.post("/api/generate", json={"prompt": "d", "project_id": first["project_id"]})
+    assert res.status_code == 429
+
+
+def test_limit_resets_at_midnight(client, monkeypatch):
+    monkeypatch.setattr(usage, "DAILY_LIMIT", 1)
+    client.post("/api/generate", json={"prompt": "a"})
+    assert client.post("/api/generate", json={"prompt": "b"}).status_code == 429
+
+    # Jump to tomorrow: today's generation no longer counts.
+    tomorrow = usage.start_of_today() + timedelta(days=1)
+    monkeypatch.setattr(usage, "start_of_today", lambda: tomorrow)
+    assert client.get("/api/usage").json()["remaining_today"] == 1
+
+
+def test_failed_generation_is_not_counted(client, monkeypatch):
+    monkeypatch.setattr(usage, "DAILY_LIMIT", 1)
+
+    class Broken:
+        def generate(self, request):
+            raise RuntimeError("model exploded")
+
+    monkeypatch.setattr(routes, "_generator", Broken())
+    assert client.post("/api/generate", json={"prompt": "a"}).status_code == 500
+    assert client.get("/api/usage").json()["remaining_today"] == 1
+
+
+def test_limit_is_per_user(monkeypatch):
+    monkeypatch.setattr(usage, "DAILY_LIMIT", 1)
+    usage.record("alice", "mock")
+    assert usage.remaining_today("alice") == 0
+    assert usage.remaining_today("bob") == 1
+
+
+def test_zero_means_unlimited(client, monkeypatch):
+    monkeypatch.setattr(usage, "DAILY_LIMIT", 0)
+    for prompt in "abc":
+        assert client.post("/api/generate", json={"prompt": prompt}).status_code == 200
+    assert client.get("/api/usage").json() == {"limit": None, "remaining_today": None}

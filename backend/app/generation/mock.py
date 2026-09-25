@@ -38,5 +38,6 @@ _TEMPLATE = """<!doctype html>
 class MockGenerator(SiteGenerator):
     def generate(self, request: GenerationRequest) -> GenerationResult:
         return GenerationResult(
-            html=_TEMPLATE.format(prompt=html_lib.escape(request.prompt))
+            html=_TEMPLATE.format(prompt=html_lib.escape(request.prompt)),
+            model="mock",
         )

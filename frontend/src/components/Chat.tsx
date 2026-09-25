@@ -1,4 +1,5 @@
 import { FormEvent, useState } from 'react'
+import type { Usage } from '../api'
 
 export type ChatMessage = {
   role: 'user' | 'assistant'
@@ -8,15 +9,17 @@ export type ChatMessage = {
 type Props = {
   messages: ChatMessage[]
   loading: boolean
+  usage: Usage | null
   onSend: (prompt: string) => void
 }
 
-export default function Chat({ messages, loading, onSend }: Props) {
+export default function Chat({ messages, loading, usage, onSend }: Props) {
   const [input, setInput] = useState('')
+  const limitReached = usage?.remaining_today === 0
 
   function submitPrompt() {
     const prompt = input.trim()
-    if (!prompt || loading) return
+    if (!prompt || loading || limitReached) return
     onSend(prompt)
     setInput('')
   }
@@ -44,6 +47,13 @@ export default function Chat({ messages, loading, onSend }: Props) {
       </div>
 
       <form className="chat__form" onSubmit={handleSubmit}>
+        {usage?.limit != null && (
+          <p className={`chat__usage${limitReached ? ' chat__usage--empty' : ''}`}>
+            {limitReached
+              ? `You've used all ${usage.limit} free generations for today — more tomorrow.`
+              : `${usage.remaining_today} of ${usage.limit} generations left today`}
+          </p>
+        )}
         <textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -60,7 +70,7 @@ export default function Chat({ messages, loading, onSend }: Props) {
             }
           }}
         />
-        <button type="submit" disabled={loading || !input.trim()}>
+        <button type="submit" disabled={loading || limitReached || !input.trim()}>
           {loading ? 'Generating…' : 'Send'}
         </button>
       </form>
