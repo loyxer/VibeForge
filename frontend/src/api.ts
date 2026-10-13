@@ -10,6 +10,10 @@ function apiUrl(path: string): string {
   return `${API_BASE}${path}`
 }
 
+// Must match API_VERSION in backend/app/main.py. If the server is newer than
+// this page (deployed while the tab was open), ask for a refresh.
+const API_VERSION = '2'
+
 // fetch() that also sends the signed-in user's session token, which the
 // backend needs to know whose projects to read and write.
 export async function apiFetch(path: string, init: RequestInit = {}): Promise<Response> {
@@ -18,7 +22,12 @@ export async function apiFetch(path: string, init: RequestInit = {}): Promise<Re
     const { data } = await supabase.auth.getSession()
     if (data.session) headers.set('Authorization', `Bearer ${data.session.access_token}`)
   }
-  return fetch(apiUrl(path), { ...init, headers })
+  const res = await fetch(apiUrl(path), { ...init, headers })
+  const serverVersion = res.headers.get('X-API-Version')
+  if (serverVersion && serverVersion !== API_VERSION) {
+    throw new Error('VibeForge has been updated — please refresh the page.')
+  }
+  return res
 }
 
 // Daily generation allowance; nulls mean "no limit".

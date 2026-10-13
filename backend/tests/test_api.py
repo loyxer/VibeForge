@@ -3,6 +3,7 @@ import asyncio
 import json
 import time
 from datetime import timedelta
+from pathlib import Path
 
 import httpx
 import pytest
@@ -53,6 +54,14 @@ def test_project_lifecycle(client):
 
     assert client.delete(f"/api/projects/{project_id}").status_code == 200
     assert client.get(f"/api/projects/{project_id}").status_code == 404
+
+
+def test_responses_carry_the_api_version(client):
+    from app.main import API_VERSION
+
+    assert client.get("/api/projects").headers["X-API-Version"] == API_VERSION
+    frontend = (Path(__file__).parents[2] / "frontend/src/api.ts").read_text()
+    assert f"const API_VERSION = '{API_VERSION}'" in frontend  # kept in sync
 
 
 def test_empty_prompt_rejected(client):
