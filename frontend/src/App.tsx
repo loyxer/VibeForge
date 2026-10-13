@@ -4,6 +4,7 @@ import Chat, { ChatMessage } from './components/Chat'
 import Preview from './components/Preview'
 import Gallery, { GallerySelection } from './components/Gallery'
 import SignIn from './components/SignIn'
+import SiteActions from './components/SiteActions'
 import { Privacy, Terms } from './components/Legal'
 import { apiFetch, readEvents, Usage } from './api'
 import { supabase } from './supabase'
@@ -70,6 +71,9 @@ function Workspace() {
   const [progress, setProgress] = useState<string | null>(null)
   const [liveCode, setLiveCode] = useState('')
   const [style, setStyle] = useState<string | null>(null)
+  const [publishedUrl, setPublishedUrl] = useState<string | null>(null)
+  const [publishedStale, setPublishedStale] = useState(false)
+  const [publishBusy, setPublishBusy] = useState(false)
   const [galleryVersion, setGalleryVersion] = useState(0)
   const [usage, setUsage] = useState<Usage | null>(null)
 
@@ -138,6 +142,13 @@ function Workspace() {
         } else if (event.type === 'done') {
           finished = true
           setHtml(event.html)
+          if (event.project_id !== projectId) {
+            setPublishedUrl(null) // a brand-new site isn't published yet
+            setPublishedStale(false)
+          } else {
+            // A published site keeps showing the old version until re-published.
+            setPublishedStale(publishedUrl !== null)
+          }
           setProjectId(event.project_id)
           setUsage((u) => (u ? { ...u, remaining_today: event.remaining_today } : u))
         }
@@ -159,6 +170,8 @@ function Workspace() {
   function handleGallerySelect(selection: GallerySelection) {
     setProjectId(selection.projectId)
     setHtml(selection.html)
+    setPublishedUrl(selection.publishedUrl)
+    setPublishedStale(false)
     setMessages(
       selection.history.flatMap((prompt) => [
         { role: 'user' as const, text: prompt },
@@ -171,14 +184,29 @@ function Workspace() {
     setProjectId(null)
     setHtml(null)
     setMessages([])
+    setPublishedUrl(null)
+    setPublishedStale(false)
+  }
+
+  async function changePublished(method: 'POST' | 'DELETE') {
+    if (!projectId) return
+    setPublishBusy(true)
+    try {
+      const res = await apiFetch(`/api/projects/${projectId}/publish`, { method })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.detail ?? `Server error: ${res.status}`)
+      setPublishedUrl(data.published_url)
+      setPublishedStale(false)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Something went wrong'
+      setMessages((m) => [...m, { role: 'assistant', text: `Error: ${message}` }])
+    } finally {
+      setPublishBusy(false)
+    }
   }
 
   function handleGalleryDelete(deletedId: string) {
-    if (deletedId === projectId) {
-      setProjectId(null)
-      setHtml(null)
-      setMessages([])
-    }
+    if (deletedId === projectId) handleNewSite()
   }
 
   // Built from the HTML already on screen: a plain link to the backend
@@ -215,10 +243,15 @@ function Workspace() {
       </div>
       <div>
         <Preview html={html} building={loading} liveCode={liveCode} />
-        {html && !loading && (
-          <button type="button" className="download-link" onClick={handleDownload}>
-            Download HTML
-          </button>
+        {html && !loading && projectId && (
+          <SiteActions
+            publishedUrl={publishedUrl}
+            stale={publishedStale}
+            busy={publishBusy}
+            onDownload={handleDownload}
+            onPublish={() => changePublished('POST')}
+            onUnpublish={() => changePublished('DELETE')}
+          />
         )}
       </div>
     </main>

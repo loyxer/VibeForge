@@ -6,10 +6,10 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.concurrency import run_in_threadpool
-from fastapi.responses import StreamingResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel
 
-from app import projects, usage
+from app import projects, publishing, usage
 from app.auth import current_user
 from app.generation.base import GenerationRequest, SiteGenerator, finish_html
 from app.generation.gemini import ModelsBusyError, QuotaExceededError
@@ -18,6 +18,8 @@ from app.generation.styles import STYLES
 logger = logging.getLogger("vibeforge")
 
 router = APIRouter()
+# Routes outside /api: the public pages people share.
+public_router = APIRouter()
 
 
 def _build_generator() -> SiteGenerator:
@@ -152,9 +154,11 @@ def list_projects(user: str = Depends(current_user)):
 @router.get("/projects/{project_id}")
 def get_project(project_id: str, user: str = Depends(current_user)):
     try:
-        return projects.get_project(project_id, user)
+        project = projects.get_project(project_id, user)
     except KeyError:
         raise HTTPException(status_code=404, detail="Project not found")
+    slug = publishing.slug_for(project_id, user)
+    return {**project, "published_url": publishing.public_url(slug) if slug else None}
 
 
 @router.delete("/projects/{project_id}")
@@ -163,4 +167,34 @@ def delete_project(project_id: str, user: str = Depends(current_user)):
         projects.delete_project(project_id, user)
     except KeyError:
         raise HTTPException(status_code=404, detail="Project not found")
+    publishing.forget_project(project_id)
     return {"status": "deleted"}
+
+
+@router.post("/projects/{project_id}/publish")
+def publish_project(project_id: str, user: str = Depends(current_user)):
+    """Publish the project's current version (again, if it already is)."""
+    try:
+        slug = publishing.publish(project_id, user)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return {"published_url": publishing.public_url(slug)}
+
+
+@router.delete("/projects/{project_id}/publish")
+def unpublish_project(project_id: str, user: str = Depends(current_user)):
+    try:
+        publishing.unpublish(project_id, user)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return {"published_url": None}
+
+
+@public_router.get("/s/{slug}", response_class=HTMLResponse)
+def published_page(slug: str):
+    """A published site, for anyone. Production serves these from Vercel
+    (frontend/api/site.ts); this is the same page for local development."""
+    html = publishing.page(slug)
+    if html is None:
+        raise HTTPException(status_code=404, detail="This page doesn't exist or was unpublished")
+    return HTMLResponse(html, headers={"Content-Security-Policy": publishing.SANDBOX_CSP})

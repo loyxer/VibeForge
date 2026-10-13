@@ -36,3 +36,24 @@ create index if not exists generations_user_created_idx
 
 alter table public.generations enable row level security;
 grant select, insert on public.generations to service_role;
+
+-- Sites their owners chose to publish at <frontend>/s/<slug>. One row per
+-- project; publishing again updates the HTML under the same slug.
+create table if not exists public.published_sites (
+  slug text primary key,
+  project_id uuid not null unique references public.projects (id) on delete cascade,
+  user_id uuid not null references auth.users (id) on delete cascade,
+  html text not null,
+  published_at timestamptz not null default now()
+);
+
+alter table public.published_sites enable row level security;
+grant select, insert, update, delete on public.published_sites to service_role;
+
+-- Published pages are public by definition: anyone (the publishable key's
+-- `anon` role, used by the Vercel function that serves /s/<slug>) may read
+-- a page's slug and HTML — and nothing else, not even who owns it.
+grant select (slug, html) on public.published_sites to anon;
+drop policy if exists "Published sites are public" on public.published_sites;
+create policy "Published sites are public"
+  on public.published_sites for select to anon using (true);

@@ -9,7 +9,7 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from app import projects, usage
+from app import projects, publishing, usage
 from app.api import routes
 from app.generation.mock import MockGenerator
 from app.main import app
@@ -19,6 +19,7 @@ from app.main import app
 def temp_store(tmp_path, monkeypatch):
     monkeypatch.setattr(projects, "_STORE_PATH", tmp_path / "projects.json")
     monkeypatch.setattr(usage, "_STORE_PATH", tmp_path / "usage.json")
+    monkeypatch.setattr(publishing, "_STORE_PATH", tmp_path / "published.json")
     monkeypatch.setattr(routes, "_generator", MockGenerator(delay=0))
 
 
@@ -207,3 +208,51 @@ def test_zero_means_unlimited(client, monkeypatch):
     for prompt in "abc":
         assert generate(client, prompt)["type"] == "done"
     assert client.get("/api/usage").json() == {"limit": None, "remaining_today": None}
+
+
+def test_publish_serves_the_site_publicly_in_a_sandbox(client):
+    project_id = generate(client, "a bakery")["project_id"]
+    assert client.get(f"/api/projects/{project_id}").json()["published_url"] is None
+
+    url = client.post(f"/api/projects/{project_id}/publish").json()["published_url"]
+    slug = url.rsplit("/", 1)[1]
+    assert publishing.SLUG_PATTERN.match(slug)
+    assert client.get(f"/api/projects/{project_id}").json()["published_url"] == url
+
+    page = client.get(f"/s/{slug}")
+    assert page.status_code == 200
+    assert "a bakery" in page.text
+    assert page.headers["Content-Security-Policy"].startswith("sandbox")
+
+
+def test_republish_keeps_the_link_and_updates_the_page(client):
+    project_id = generate(client, "a bakery")["project_id"]
+    url = client.post(f"/api/projects/{project_id}/publish").json()["published_url"]
+    generate(client, "now a flower shop", project_id)
+    # Not re-published yet: the old version is still what people see.
+    assert "a bakery" in client.get("/s/" + url.rsplit("/", 1)[1]).text
+
+    assert client.post(f"/api/projects/{project_id}/publish").json()["published_url"] == url
+    assert "now a flower shop" in client.get("/s/" + url.rsplit("/", 1)[1]).text
+
+
+def test_unpublish_and_delete_take_the_page_down(client):
+    project_id = generate(client, "a bakery")["project_id"]
+    slug = client.post(f"/api/projects/{project_id}/publish").json()["published_url"].rsplit("/", 1)[1]
+    client.delete(f"/api/projects/{project_id}/publish")
+    assert client.get(f"/s/{slug}").status_code == 404
+
+    slug = client.post(f"/api/projects/{project_id}/publish").json()["published_url"].rsplit("/", 1)[1]
+    client.delete(f"/api/projects/{project_id}")
+    assert client.get(f"/s/{slug}").status_code == 404
+
+
+def test_cannot_publish_someone_elses_project(client):
+    assert client.post("/api/projects/nope/publish").status_code == 404
+    assert client.get("/s/not-a-real-slug").status_code == 404
+
+
+def test_published_url_uses_the_frontend_origin(monkeypatch):
+    monkeypatch.delenv("PUBLIC_SITE_BASE", raising=False)
+    monkeypatch.setenv("FRONTEND_ORIGIN", "https://vibe.example")
+    assert publishing.public_url("abcd1234") == "https://vibe.example/s/abcd1234"

@@ -10,6 +10,7 @@ export type GallerySelection = {
   projectId: string
   html: string
   history: string[]
+  publishedUrl: string | null
 }
 
 type Props = {
@@ -32,7 +33,12 @@ export default function Gallery({ refreshKey, onSelect, onDelete }: Props) {
     const res = await apiFetch(`/api/projects/${id}`)
     if (!res.ok) return
     const data = await res.json()
-    onSelect({ projectId: id, html: data.html, history: data.history ?? [] })
+    onSelect({
+      projectId: id,
+      html: data.html,
+      history: data.history ?? [],
+      publishedUrl: data.published_url ?? null,
+    })
   }
 
   async function handleDelete(event: MouseEvent, id: string) {

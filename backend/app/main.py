@@ -18,7 +18,7 @@ _log.propagate = False
 from fastapi import FastAPI  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 
-from app.api.routes import router  # noqa: E402
+from app.api.routes import public_router, router  # noqa: E402
 
 app = FastAPI(title="VibeForge API")
 
@@ -68,6 +68,7 @@ app.add_middleware(
 )
 
 app.include_router(router, prefix="/api")
+app.include_router(public_router)
 
 
 @app.get("/health")
