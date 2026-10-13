@@ -139,8 +139,11 @@ class GeminiGenerator(SiteGenerator):
                 raise
 
         if last_error is None or _QUOTA_MARKER in str(last_error):
+            # Shared by every user, unlike the personal limit in usage.py —
+            # say so, or someone with all 5 attempts left is just confused.
             raise QuotaExceededError(
-                "Daily free generation limit reached — try again tomorrow."
+                "VibeForge has used up today's free AI capacity for everyone — "
+                "please try again tomorrow."
             ) from last_error
         raise last_error
 
