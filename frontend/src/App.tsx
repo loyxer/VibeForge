@@ -4,6 +4,7 @@ import Chat, { ChatMessage } from './components/Chat'
 import Preview from './components/Preview'
 import Gallery, { GallerySelection } from './components/Gallery'
 import SignIn from './components/SignIn'
+import { Privacy, Terms } from './components/Legal'
 import { apiFetch, Usage } from './api'
 import { supabase } from './supabase'
 
@@ -22,6 +23,8 @@ export default function App() {
     return () => data.subscription.unsubscribe()
   }, [])
 
+  const path = window.location.pathname
+
   return (
     <div className="app">
       <header>
@@ -39,12 +42,22 @@ export default function App() {
         )}
       </header>
 
-      {!authReady ? null : supabase && !session ? (
+      {/* No router: the only other pages are the two static legal ones. */}
+      {path === '/privacy' ? (
+        <Privacy />
+      ) : path === '/terms' ? (
+        <Terms />
+      ) : !authReady ? null : supabase && !session ? (
         <SignIn />
       ) : (
         // Keyed by user so signing in as someone else starts from a clean slate.
         <Workspace key={session?.user.id ?? 'local'} />
       )}
+
+      <footer>
+        <a href="/privacy">Privacy</a>
+        <a href="/terms">Terms</a>
+      </footer>
     </div>
   )
 }
