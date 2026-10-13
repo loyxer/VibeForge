@@ -1,14 +1,18 @@
+import json
 import logging
 import os
+from collections.abc import AsyncIterator
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.concurrency import run_in_threadpool
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from app import projects, usage
 from app.auth import current_user
-from app.generation.base import GenerationRequest, SiteGenerator
-from app.generation.gemini import QuotaExceededError
+from app.generation.base import GenerationRequest, SiteGenerator, finish_html
+from app.generation.gemini import ModelsBusyError, QuotaExceededError
 
 logger = logging.getLogger("vibeforge")
 
@@ -23,7 +27,8 @@ def _build_generator() -> SiteGenerator:
         return GeminiGenerator()
     from app.generation.mock import MockGenerator
 
-    return MockGenerator()
+    # MOCK_DELAY slows the fake stream down to watch the live preview work.
+    return MockGenerator(delay=float(os.getenv("MOCK_DELAY", "0.15")))
 
 
 _generator = _build_generator()
@@ -34,15 +39,26 @@ class GenerateBody(BaseModel):
     project_id: Optional[str] = None
 
 
-# Handlers are plain `def`, not `async def`, on purpose: generation and the
-# database calls block for seconds, and FastAPI runs sync handlers in a
-# thread pool — so one user's generation doesn't freeze everyone else.
 @router.post("/generate")
-def generate(body: GenerateBody, user: str = Depends(current_user)):
+async def generate(body: GenerateBody, user: str = Depends(current_user)):
+    """Streams the site as it's written, one JSON object per line:
+
+        {"type": "status", "text": ...}   e.g. "trying another model"
+        {"type": "model",  "text": ...}   which model is writing
+        {"type": "text",   "text": ...}   the next piece of HTML
+        {"type": "reset",  "text": ""}    model dropped out: discard the text so far
+        {"type": "done", "project_id", "html", "remaining_today"}
+        {"type": "error", "status", "detail"}
+
+    Problems we can spot up front (empty prompt, daily limit, unknown
+    project) are still plain HTTP errors before the stream starts.
+    """
     if not body.prompt.strip():
         raise HTTPException(status_code=400, detail="Prompt is empty")
 
-    if usage.remaining_today(user) == 0:
+    # The database calls are blocking — run them off the event loop so one
+    # request never stalls the others.
+    if await run_in_threadpool(usage.remaining_today, user) == 0:
         raise HTTPException(
             status_code=429,
             detail=f"You've used all {usage.DAILY_LIMIT} free generations for "
@@ -52,34 +68,69 @@ def generate(body: GenerateBody, user: str = Depends(current_user)):
     previous_html = None
     if body.project_id:
         try:
-            previous_html = projects.get_project(body.project_id, user)["html"]
+            project = await run_in_threadpool(projects.get_project, body.project_id, user)
         except KeyError:
             raise HTTPException(status_code=404, detail="Project not found")
+        previous_html = project["html"]
 
     request = GenerationRequest(prompt=body.prompt, previous_html=previous_html)
+    return StreamingResponse(
+        _generation_events(request, body, user), media_type="application/x-ndjson"
+    )
+
+
+async def _generation_events(
+    request: GenerationRequest, body: GenerateBody, user: str
+) -> AsyncIterator[str]:
+    model, parts = "unknown", []
     try:
-        result = _generator.generate(request)
+        async for kind, value in _generator.stream(request):
+            if kind == "model":
+                model = value
+            elif kind == "text":
+                parts.append(value)
+            elif kind == "reset":
+                parts.clear()
+            yield _line({"type": kind, "text": value})
+
+        html = finish_html("".join(parts))
+        if body.project_id:
+            await run_in_threadpool(
+                projects.update_project, body.project_id, user, html, body.prompt
+            )
+            project_id = body.project_id
+        else:
+            project_id = await run_in_threadpool(
+                projects.create_project, user, html, body.prompt
+            )
+        # Only a site that was actually delivered and saved counts.
+        await run_in_threadpool(usage.record, user, model)
+        remaining = await run_in_threadpool(usage.remaining_today, user)
     except QuotaExceededError as e:
         logger.warning("Gemini daily quota exceeded")
-        raise HTTPException(status_code=429, detail=str(e))
+        yield _line({"type": "error", "status": 429, "detail": str(e)})
+        return
+    except ModelsBusyError as e:
+        logger.warning("All models busy")
+        yield _line({"type": "error", "status": 503, "detail": str(e)})
+        return
     except Exception as e:
         logger.exception("Generation failed (%s): %s", type(e).__name__, e)
-        raise HTTPException(status_code=500, detail=f"{type(e).__name__}: {e}")
+        yield _line({"type": "error", "status": 500, "detail": f"{type(e).__name__}: {e}"})
+        return
 
-    if body.project_id:
-        projects.update_project(body.project_id, user, result.html, body.prompt)
-        project_id = body.project_id
-    else:
-        project_id = projects.create_project(user, result.html, body.prompt)
-
-    usage.record(user, result.model)
-    return {
-        "project_id": project_id,
-        "html": result.html,
-        "remaining_today": usage.remaining_today(user),
-    }
+    yield _line(
+        {"type": "done", "project_id": project_id, "html": html, "remaining_today": remaining}
+    )
 
 
+def _line(event: dict) -> str:
+    return json.dumps(event) + "\n"
+
+
+# The handlers below are plain `def`, not `async def`, on purpose: the
+# database calls block, and FastAPI runs sync handlers in a thread pool —
+# so they don't freeze other requests.
 @router.get("/usage")
 def get_usage(user: str = Depends(current_user)):
     return {"limit": usage.DAILY_LIMIT or None, "remaining_today": usage.remaining_today(user)}

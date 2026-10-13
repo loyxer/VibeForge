@@ -9,11 +9,12 @@ export type ChatMessage = {
 type Props = {
   messages: ChatMessage[]
   loading: boolean
+  progress: string | null
   usage: Usage | null
   onSend: (prompt: string) => void
 }
 
-export default function Chat({ messages, loading, usage, onSend }: Props) {
+export default function Chat({ messages, loading, progress, usage, onSend }: Props) {
   const [input, setInput] = useState('')
   const limitReached = usage?.remaining_today === 0
 
@@ -43,7 +44,9 @@ export default function Chat({ messages, loading, usage, onSend }: Props) {
             {m.text}
           </div>
         ))}
-        {loading && <div className="chat__message chat__message--assistant">Generating…</div>}
+        {loading && (
+          <div className="chat__message chat__message--assistant">{progress ?? 'Generating…'}</div>
+        )}
       </div>
 
       <form className="chat__form" onSubmit={handleSubmit}>

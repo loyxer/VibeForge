@@ -152,10 +152,35 @@ main {
 }
 
 .preview__frame {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   border: none;
   background: white;
+}
+
+.preview__frame--hidden {
+  visibility: hidden;
+}
+
+.preview__code {
+  position: absolute;
+  left: 0.75rem;
+  right: 0.75rem;
+  bottom: 0.75rem;
+  margin: 0;
+  max-height: 9.5em;
+  overflow: hidden;
+  padding: 0.6rem 0.75rem;
+  background: rgba(18, 20, 26, 0.92);
+  color: #9fb8f0;
+  border: 1px solid #2c303a;
+  border-radius: 8px;
+  font: 0.72rem/1.35 ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: pre-wrap;
+  word-break: break-all;
+  pointer-events: none;
 }
 
 .preview__placeholder {
@@ -165,6 +190,18 @@ main {
   align-items: center;
   justify-content: center;
   color: #6a6f7a;
+  pointer-events: none;
+}
+
+.preview__badge {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  background: rgba(18, 20, 26, 0.85);
+  color: #f2f2f2;
+  font-size: 0.75rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: 999px;
   pointer-events: none;
 }
 

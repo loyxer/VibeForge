@@ -2,9 +2,11 @@
 Gemini, so the full pipeline (chat -> API -> live preview -> download) can
 be tested without an API key. See gemini.py for the real integration.
 """
+import asyncio
 import html as html_lib
+from collections.abc import AsyncIterator
 
-from .base import GenerationRequest, GenerationResult, SiteGenerator
+from .base import Event, GenerationRequest, SiteGenerator
 
 _TEMPLATE = """<!doctype html>
 <html>
@@ -36,8 +38,16 @@ _TEMPLATE = """<!doctype html>
 
 
 class MockGenerator(SiteGenerator):
-    def generate(self, request: GenerationRequest) -> GenerationResult:
-        return GenerationResult(
-            html=_TEMPLATE.format(prompt=html_lib.escape(request.prompt)),
-            model="mock",
-        )
+    """Streams the placeholder page in small pieces, like a real model would,
+    so the live preview can be tried out without spending any quota."""
+
+    def __init__(self, delay: float = 0.15) -> None:
+        self._delay = delay
+
+    async def stream(self, request: GenerationRequest) -> AsyncIterator[Event]:
+        page = _TEMPLATE.format(prompt=html_lib.escape(request.prompt))
+        yield ("model", "mock")
+        step = max(len(page) // 10, 1)
+        for i in range(0, len(page), step):
+            await asyncio.sleep(self._delay)
+            yield ("text", page[i : i + step])

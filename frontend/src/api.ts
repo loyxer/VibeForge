@@ -23,3 +23,23 @@ export async function apiFetch(path: string, init: RequestInit = {}): Promise<Re
 
 // Daily generation allowance; nulls mean "no limit".
 export type Usage = { limit: number | null; remaining_today: number | null }
+
+// What POST /api/generate streams back, one JSON object per line.
+export type GenerationEvent =
+  | { type: 'status' | 'model' | 'text' | 'reset'; text: string }
+  | { type: 'done'; project_id: string; html: string; remaining_today: number | null }
+  | { type: 'error'; status: number; detail: string }
+
+export async function* readEvents(res: Response): AsyncGenerator<GenerationEvent> {
+  const reader = res.body!.pipeThrough(new TextDecoderStream()).getReader()
+  let buffer = ''
+  for (;;) {
+    const { value, done } = await reader.read()
+    if (done) break
+    buffer += value
+    const lines = buffer.split('\n')
+    buffer = lines.pop()! // the last piece may be an unfinished line
+    for (const line of lines) if (line.trim()) yield JSON.parse(line)
+  }
+  if (buffer.trim()) yield JSON.parse(buffer)
+}

@@ -5,18 +5,22 @@ Get a free key at https://aistudio.google.com/apikey.
 
 The free tier caps each model separately (e.g. 20 requests/day for every
 Flash model, 500/day for the Flash Lite ones — see AI Studio → Rate
-Limit), so instead of one model we walk a chain from best to cheapest:
-when a model's quota is used up we move on to the next one.
+Limit), so instead of one model we walk a chain from best to cheapest.
+A model is skipped when its quota is used up, when it answers 503 "high
+demand", or when it sits in Google's queue without saying anything: on the
+free tier a busy model can keep a request waiting for minutes before the
+first word, so we give each one FIRST_CHUNK_TIMEOUT seconds to start.
 """
+import asyncio
 import logging
 import os
-import re
 import threading
 import time
+from collections.abc import AsyncIterator
 
 from google import genai
 
-from .base import GenerationRequest, GenerationResult, SiteGenerator
+from .base import Event, GenerationRequest, SiteGenerator
 
 logger = logging.getLogger("vibeforge")
 
@@ -36,22 +40,30 @@ _MODELS = tuple(
     if m.strip()
 )
 
-# A model answering 503 "high demand" gets no retry: with a whole chain of
-# models it's faster to move on, and we skip it for a bit so the next
-# users don't wait on it either.
-_SKIP_AFTER_OVERLOAD = 2 * 60
+# Seconds a model gets to send its first piece of output. A healthy model
+# starts within a few seconds; one stuck in the queue is cancelled (closing
+# the request cancels it on Google's side too) and we try the next.
+FIRST_CHUNK_TIMEOUT = float(os.getenv("GEMINI_FIRST_CHUNK_TIMEOUT", "15"))
+
+# How long to leave a model alone after it let us down, so the next users
+# go straight to one that works.
+_SKIP_AFTER_SLOW = 5 * 60
+_SKIP_AFTER_OVERLOAD = 2 * 60  # answered 503 "high demand"
+_SKIP_AFTER_DAILY_CAP = 60 * 60  # resets at midnight Pacific; recheck hourly
+_SKIP_AFTER_MINUTE_CAP = 60
+
 _RETRYABLE_MARKERS = ("503", "UNAVAILABLE", "overloaded", "high demand")
 _QUOTA_MARKER = "RESOURCE_EXHAUSTED"
 
-# How long to skip a model after it reports its quota is used up. A daily
-# cap resets at midnight Pacific; rechecking hourly costs one fast failed
-# call and saves us from timezone bookkeeping.
-_SKIP_AFTER_DAILY_CAP = 60 * 60
-_SKIP_AFTER_MINUTE_CAP = 60
+_BUSY_STATUS = "The AI is busy right now — trying another model…"
 
 
 class QuotaExceededError(RuntimeError):
     """Every model in the chain has used up its free-tier quota."""
+
+
+class ModelsBusyError(RuntimeError):
+    """Every model was overloaded or stuck in the queue."""
 
 
 _SYSTEM_PROMPT = """You are a website generator. Given a description, output
@@ -91,7 +103,12 @@ styling."""
 
 
 class GeminiGenerator(SiteGenerator):
-    def __init__(self, client=None, models: tuple[str, ...] = _MODELS) -> None:
+    def __init__(
+        self,
+        client=None,
+        models: tuple[str, ...] = _MODELS,
+        first_chunk_timeout: float = FIRST_CHUNK_TIMEOUT,
+    ) -> None:
         if client is None:
             api_key = os.getenv("GEMINI_API_KEY")
             if not api_key:
@@ -102,28 +119,37 @@ class GeminiGenerator(SiteGenerator):
             client = genai.Client(api_key=api_key)
         self._client = client
         self._models = models
+        self._first_chunk_timeout = first_chunk_timeout
         # model -> time.monotonic() until which we don't bother trying it
-        # (out of quota, overloaded, or no longer exists)
         self._skip_until: dict[str, float] = {}
         self._lock = threading.Lock()
 
-    def generate(self, request: GenerationRequest) -> GenerationResult:
+    async def stream(self, request: GenerationRequest) -> AsyncIterator[Event]:
         parts = [_SYSTEM_PROMPT]
         if request.previous_html:
             parts.append(f"Existing HTML:\n{request.previous_html}")
         parts.append(f"Instruction: {request.prompt}")
         contents = "\n\n".join(parts)
 
+        failures: list[str] = []  # "quota" / "busy", to pick the final error
         last_error: Exception | None = None
         for model in self._available_models():
             try:
-                html = self._generate_with(model, contents)
-                logger.info("Generated with %s", model)
-                return GenerationResult(html=html, model=model)
+                chunks, first = await self._start(model, contents)
+            except TimeoutError:
+                logger.warning(
+                    "%s said nothing for %ss (queued), trying the next model",
+                    model, self._first_chunk_timeout,
+                )
+                self._skip(model, _SKIP_AFTER_SLOW)
+                failures.append("busy")
+                yield ("status", _BUSY_STATUS)
+                continue
             except Exception as e:  # noqa: BLE001 - SDK error types vary
                 last_error = e
                 if _QUOTA_MARKER in str(e):
                     self._mark_exhausted(model, e)
+                    failures.append("quota")
                     continue
                 if "NOT_FOUND" in str(e):
                     # Google retired or renamed this model — don't let one
@@ -134,26 +160,76 @@ class GeminiGenerator(SiteGenerator):
                 if _is_retryable(e):
                     logger.warning("%s overloaded, trying the next model", model)
                     self._skip(model, _SKIP_AFTER_OVERLOAD)
+                    failures.append("busy")
+                    yield ("status", _BUSY_STATUS)
                     continue
                 raise
 
-        if last_error is None or _QUOTA_MARKER in str(last_error):
-            # Shared by every user, unlike the personal limit in usage.py —
-            # say so, or someone with all 5 attempts left is just confused.
+            logger.info("Generating with %s", model)
+            yield ("model", model)
+            try:
+                if first.text:
+                    yield ("text", first.text)
+                async for chunk in chunks:
+                    if chunk.text:
+                        yield ("text", chunk.text)
+            except Exception as e:  # noqa: BLE001
+                # Under heavy load Google sometimes cuts a stream off halfway
+                # with a 503. Half a page is useless — start over elsewhere.
+                if not (_is_retryable(e) or _QUOTA_MARKER in str(e)):
+                    raise
+                last_error = e
+                logger.warning("%s dropped out mid-stream (%s), starting over", model, e)
+                self._skip(model, _SKIP_AFTER_OVERLOAD)
+                failures.append("busy")
+                yield ("reset", "")
+                yield ("status", "The AI dropped out halfway — starting over with another model…")
+                continue
+            return
+
+        if "busy" in failures:
+            raise ModelsBusyError(
+                "All AI models are busy right now — please try again in a few minutes."
+            ) from last_error
+        if failures or last_error is None:
+            # Only quota failures left. Shared by every user, unlike the
+            # personal limit in usage.py — say so, or someone with all 5
+            # attempts left is just confused.
             raise QuotaExceededError(
                 "VibeForge has used up today's free AI capacity for everyone — "
                 "please try again tomorrow."
             ) from last_error
-        raise last_error
+        raise last_error  # every model was missing (NOT_FOUND)
 
-    def _generate_with(self, model: str, contents: str) -> str:
-        response = self._client.models.generate_content(model=model, contents=contents)
-        html = _extract_html(response.text or "")
-        if not html:
-            raise RuntimeError(
-                "Gemini returned an empty response — try rephrasing the request."
+    async def _start(self, model: str, contents: str):
+        """Open a stream and wait for its first chunk, within the timeout.
+
+        Raises TimeoutError if the model stays silent; the half-open request
+        is cancelled and closed so it doesn't keep running on Google's side.
+        """
+        opened = []
+
+        async def first_chunk():
+            chunks = await self._client.aio.models.generate_content_stream(
+                model=model, contents=contents
             )
-        return html
+            opened.append(chunks)
+            try:
+                return chunks, await anext(chunks)
+            except StopAsyncIteration:
+                raise RuntimeError(
+                    "The AI returned an empty response — try rephrasing the request."
+                )
+
+        try:
+            return await asyncio.wait_for(first_chunk(), self._first_chunk_timeout)
+        except TimeoutError:
+            for chunks in opened:
+                try:
+                    await chunks.aclose()
+                except Exception:  # noqa: BLE001 - best effort cleanup
+                    pass
+            raise
 
     def _available_models(self) -> list[str]:
         now = time.monotonic()
@@ -180,17 +256,3 @@ class GeminiGenerator(SiteGenerator):
 def _is_retryable(error: Exception) -> bool:
     message = str(error)
     return any(marker in message for marker in _RETRYABLE_MARKERS)
-
-
-def _extract_html(text: str) -> str:
-    # The model sometimes wraps its whole response in a markdown code fence
-    # despite being told not to — strip it if the *entire* response is
-    # fenced. Deliberately anchored to the start/end (not a mid-text
-    # search): the generated HTML can itself contain ``` sequences (e.g.
-    # inside a JS template literal), and an unanchored search could match
-    # those instead of the real fence, silently truncating the page.
-    text = text.strip()
-    if text.startswith("```"):
-        text = re.sub(r"^```[a-zA-Z]*\n?", "", text)
-        text = re.sub(r"\n?```\s*$", "", text)
-    return text.strip()

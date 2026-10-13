@@ -1,5 +1,6 @@
 """API behaviour in local mode (JSON store, mock generator)."""
 import asyncio
+import json
 import time
 from datetime import timedelta
 
@@ -9,7 +10,7 @@ from fastapi.testclient import TestClient
 
 from app import projects, usage
 from app.api import routes
-from app.generation.base import GenerationResult
+from app.generation.mock import MockGenerator
 from app.main import app
 
 
@@ -17,6 +18,7 @@ from app.main import app
 def temp_store(tmp_path, monkeypatch):
     monkeypatch.setattr(projects, "_STORE_PATH", tmp_path / "projects.json")
     monkeypatch.setattr(usage, "_STORE_PATH", tmp_path / "usage.json")
+    monkeypatch.setattr(routes, "_generator", MockGenerator(delay=0))
 
 
 @pytest.fixture
@@ -24,15 +26,24 @@ def client():
     return TestClient(app)
 
 
-def test_project_lifecycle(client):
-    res = client.post("/api/generate", json={"prompt": "a coffee shop"})
-    assert res.status_code == 200
-    project_id = res.json()["project_id"]
+def stream(client, prompt, project_id=None):
+    """All events of one /api/generate stream (the HTTP status must be 200)."""
+    res = client.post("/api/generate", json={"prompt": prompt, "project_id": project_id})
+    assert res.status_code == 200, res.text
+    return [json.loads(line) for line in res.text.splitlines()]
 
-    res = client.post(
-        "/api/generate", json={"prompt": "make it blue", "project_id": project_id}
-    )
-    assert res.json()["project_id"] == project_id
+
+def generate(client, prompt, project_id=None):
+    """The final event of a generation: "done" or "error"."""
+    return stream(client, prompt, project_id)[-1]
+
+
+def test_project_lifecycle(client):
+    done = generate(client, "a coffee shop")
+    assert done["type"] == "done"
+    project_id = done["project_id"]
+
+    assert generate(client, "make it blue", project_id)["project_id"] == project_id
 
     assert client.get(f"/api/projects/{project_id}").json()["history"] == [
         "a coffee shop",
@@ -53,13 +64,38 @@ def test_unknown_project_is_404(client):
     assert res.status_code == 404
 
 
-def test_slow_generation_does_not_block_other_requests(monkeypatch):
-    class SlowGenerator:
-        def generate(self, request):
-            time.sleep(1)
-            return GenerationResult(html="<html></html>")
+def test_streams_the_site_in_pieces(client):
+    events = stream(client, "a coffee shop")
+    assert events[0] == {"type": "model", "text": "mock"}
+    pieces = [e["text"] for e in events if e["type"] == "text"]
+    assert len(pieces) > 1
+    assert "".join(pieces).strip() == events[-1]["html"]
 
-    monkeypatch.setattr(routes, "_generator", SlowGenerator())
+
+def test_reset_discards_the_half_written_site(client, monkeypatch):
+    class DropsOut(MockGenerator):
+        async def stream(self, request):
+            yield ("model", "first")
+            yield ("text", "<html>broken half")
+            yield ("reset", "")
+            yield ("model", "second")
+            yield ("text", "<html>whole</html>")
+
+    monkeypatch.setattr(routes, "_generator", DropsOut())
+    monkeypatch.setattr(usage, "DAILY_LIMIT", 5)
+    done = generate(client, "x")
+    assert done["html"] == "<html>whole</html>"
+    assert done["remaining_today"] == 4  # one generation, not two
+
+
+def test_slow_database_does_not_block_other_requests(monkeypatch):
+    # The generate endpoint is async; a blocking database call made straight
+    # from it would freeze the whole server. Simulate a slow database.
+    def slow_remaining(user):
+        time.sleep(1)
+        return 5
+
+    monkeypatch.setattr(usage, "remaining_today", slow_remaining)
 
     async def run():
         transport = httpx.ASGITransport(app=app)
@@ -81,9 +117,9 @@ def test_daily_limit(client, monkeypatch):
     monkeypatch.setattr(usage, "DAILY_LIMIT", 2)
     assert client.get("/api/usage").json() == {"limit": 2, "remaining_today": 2}
 
-    first = client.post("/api/generate", json={"prompt": "a"}).json()
+    first = generate(client, "a")
     assert first["remaining_today"] == 1
-    assert client.post("/api/generate", json={"prompt": "b"}).json()["remaining_today"] == 0
+    assert generate(client, "b")["remaining_today"] == 0
 
     res = client.post("/api/generate", json={"prompt": "c"})
     assert res.status_code == 429
@@ -95,7 +131,7 @@ def test_daily_limit(client, monkeypatch):
 
 def test_limit_resets_at_midnight(client, monkeypatch):
     monkeypatch.setattr(usage, "DAILY_LIMIT", 1)
-    client.post("/api/generate", json={"prompt": "a"})
+    generate(client, "a")
     assert client.post("/api/generate", json={"prompt": "b"}).status_code == 429
 
     # Jump to tomorrow: today's generation no longer counts.
@@ -107,13 +143,16 @@ def test_limit_resets_at_midnight(client, monkeypatch):
 def test_failed_generation_is_not_counted(client, monkeypatch):
     monkeypatch.setattr(usage, "DAILY_LIMIT", 1)
 
-    class Broken:
-        def generate(self, request):
+    class Broken(MockGenerator):
+        async def stream(self, request):
+            yield ("text", "<html>half a si")
             raise RuntimeError("model exploded")
 
     monkeypatch.setattr(routes, "_generator", Broken())
-    assert client.post("/api/generate", json={"prompt": "a"}).status_code == 500
+    error = generate(client, "a")
+    assert error == {"type": "error", "status": 500, "detail": "RuntimeError: model exploded"}
     assert client.get("/api/usage").json()["remaining_today"] == 1
+    assert client.get("/api/projects").json()["items"] == []
 
 
 def test_limit_is_per_user(monkeypatch):
@@ -126,5 +165,5 @@ def test_limit_is_per_user(monkeypatch):
 def test_zero_means_unlimited(client, monkeypatch):
     monkeypatch.setattr(usage, "DAILY_LIMIT", 0)
     for prompt in "abc":
-        assert client.post("/api/generate", json={"prompt": prompt}).status_code == 200
+        assert generate(client, prompt)["type"] == "done"
     assert client.get("/api/usage").json() == {"limit": None, "remaining_today": None}
