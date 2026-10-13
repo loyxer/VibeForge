@@ -57,3 +57,20 @@ grant select (slug, html) on public.published_sites to anon;
 drop policy if exists "Published sites are public" on public.published_sites;
 create policy "Published sites are public"
   on public.published_sites for select to anon using (true);
+
+-- Every version of every site: one row per successful generation or
+-- restore, so the owner can look back and restore an earlier one.
+create table if not exists public.project_versions (
+  id bigint generated always as identity primary key,
+  project_id uuid not null references public.projects (id) on delete cascade,
+  user_id uuid not null references auth.users (id) on delete cascade,
+  prompt text not null,
+  html text not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists project_versions_project_created_idx
+  on public.project_versions (project_id, created_at);
+
+alter table public.project_versions enable row level security;
+grant select, insert, delete on public.project_versions to service_role;

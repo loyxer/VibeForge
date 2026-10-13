@@ -1,4 +1,4 @@
-import { FormEvent, useState } from 'react'
+import { FormEvent, useEffect, useRef, useState } from 'react'
 import type { Usage } from '../api'
 import StylePicker from './StylePicker'
 
@@ -33,6 +33,13 @@ export default function Chat({
 }: Props) {
   const [input, setInput] = useState('')
   const limitReached = usage?.remaining_today === 0
+  const list = useRef<HTMLDivElement>(null)
+
+  // Keep the newest message (and the live progress line) in view — by
+  // scrolling the message list only, never the whole page.
+  useEffect(() => {
+    if (list.current) list.current.scrollTop = list.current.scrollHeight
+  }, [messages, loading, progress])
 
   function submitPrompt() {
     const prompt = input.trim()
@@ -55,7 +62,7 @@ export default function Chat({
           </button>
         </div>
       )}
-      <div className="chat__messages">
+      <div className="chat__messages" ref={list}>
         {messages.length === 0 && (
           <p className="chat__empty">
             Describe the site you want, e.g. "a landing page for a coffee

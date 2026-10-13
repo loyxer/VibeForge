@@ -9,7 +9,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel
 
-from app import projects, publishing, usage
+from app import projects, publishing, usage, versions
 from app.auth import current_user
 from app.generation.base import GenerationRequest, SiteGenerator, finish_html
 from app.generation.gemini import ModelsBusyError, QuotaExceededError
@@ -113,6 +113,7 @@ async def _generation_events(
             project_id = await run_in_threadpool(
                 projects.create_project, user, html, body.prompt
             )
+        await run_in_threadpool(versions.add, project_id, user, body.prompt, html)
         # Only a site that was actually delivered and saved counts.
         await run_in_threadpool(usage.record, user, model)
         remaining = await run_in_threadpool(usage.remaining_today, user)
@@ -168,7 +169,34 @@ def delete_project(project_id: str, user: str = Depends(current_user)):
     except KeyError:
         raise HTTPException(status_code=404, detail="Project not found")
     publishing.forget_project(project_id)
+    versions.forget_project(project_id)
     return {"status": "deleted"}
+
+
+@router.get("/projects/{project_id}/versions")
+def list_versions(project_id: str, user: str = Depends(current_user)):
+    try:
+        return {"items": versions.list_versions(project_id, user)}
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+
+@router.get("/projects/{project_id}/versions/{version_id}")
+def get_version(project_id: str, version_id: int, user: str = Depends(current_user)):
+    try:
+        return versions.get_version(project_id, user, version_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Version not found")
+
+
+@router.post("/projects/{project_id}/versions/{version_id}/restore")
+def restore_version(project_id: str, version_id: int, user: str = Depends(current_user)):
+    """Bring back an earlier version as the newest one. Free: no AI involved,
+    so it doesn't count towards the daily limit."""
+    try:
+        return versions.restore(project_id, user, version_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Version not found")
 
 
 @router.post("/projects/{project_id}/publish")

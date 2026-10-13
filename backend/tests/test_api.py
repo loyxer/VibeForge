@@ -9,7 +9,7 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from app import projects, publishing, usage
+from app import projects, publishing, usage, versions
 from app.api import routes
 from app.generation.mock import MockGenerator
 from app.main import app
@@ -20,6 +20,7 @@ def temp_store(tmp_path, monkeypatch):
     monkeypatch.setattr(projects, "_STORE_PATH", tmp_path / "projects.json")
     monkeypatch.setattr(usage, "_STORE_PATH", tmp_path / "usage.json")
     monkeypatch.setattr(publishing, "_STORE_PATH", tmp_path / "published.json")
+    monkeypatch.setattr(versions, "_STORE_PATH", tmp_path / "versions.json")
     monkeypatch.setattr(routes, "_generator", MockGenerator(delay=0))
 
 
@@ -256,3 +257,43 @@ def test_published_url_uses_the_frontend_origin(monkeypatch):
     monkeypatch.delenv("PUBLIC_SITE_BASE", raising=False)
     monkeypatch.setenv("FRONTEND_ORIGIN", "https://vibe.example")
     assert publishing.public_url("abcd1234") == "https://vibe.example/s/abcd1234"
+
+
+def test_every_generation_is_a_version(client):
+    project_id = generate(client, "a bakery")["project_id"]
+    generate(client, "make it blue", project_id)
+    items = client.get(f"/api/projects/{project_id}/versions").json()["items"]
+    assert [(v["number"], v["prompt"]) for v in items] == [(2, "make it blue"), (1, "a bakery")]
+    assert "html" not in items[0]  # the list stays light
+
+    first = client.get(f"/api/projects/{project_id}/versions/{items[1]['id']}").json()
+    assert first["number"] == 1 and "a bakery" in first["html"]
+
+
+def test_restore_brings_back_an_old_version_as_the_newest(client, monkeypatch):
+    monkeypatch.setattr(usage, "DAILY_LIMIT", 5)
+    project_id = generate(client, "a bakery")["project_id"]
+    generate(client, "make it blue", project_id)
+    v1 = client.get(f"/api/projects/{project_id}/versions").json()["items"][-1]
+
+    state = client.post(f"/api/projects/{project_id}/versions/{v1['id']}/restore").json()
+    assert "a bakery" in state["html"]
+    assert state["history"][-1] == "↩ Restored version 1"
+
+    items = client.get(f"/api/projects/{project_id}/versions").json()["items"]
+    assert [v["number"] for v in items] == [3, 2, 1]  # nothing was deleted
+    assert client.get("/api/usage").json()["remaining_today"] == 3  # restore is free
+    assert "a bakery" in client.get(f"/api/projects/{project_id}").json()["html"]
+
+
+def test_old_sites_get_their_current_state_as_version_one(client):
+    project_id = projects.create_project("local", "<html>old site</html>", "an old prompt")
+    items = client.get(f"/api/projects/{project_id}/versions").json()["items"]
+    assert [(v["number"], v["prompt"]) for v in items] == [(1, "an old prompt")]
+
+
+def test_versions_of_unknown_projects_are_404(client):
+    assert client.get("/api/projects/nope/versions").status_code == 404
+    project_id = generate(client, "a bakery")["project_id"]
+    assert client.get(f"/api/projects/{project_id}/versions/999").status_code == 404
+    assert client.post(f"/api/projects/{project_id}/versions/999/restore").status_code == 404

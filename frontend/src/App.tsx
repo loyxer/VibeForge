@@ -5,6 +5,7 @@ import Preview from './components/Preview'
 import Gallery, { GallerySelection } from './components/Gallery'
 import SignIn from './components/SignIn'
 import SiteActions from './components/SiteActions'
+import VersionHistory, { VersionSummary } from './components/VersionHistory'
 import { Privacy, Terms } from './components/Legal'
 import { apiFetch, readEvents, Usage } from './api'
 import { supabase } from './supabase'
@@ -74,6 +75,10 @@ function Workspace() {
   const [publishedUrl, setPublishedUrl] = useState<string | null>(null)
   const [publishedStale, setPublishedStale] = useState(false)
   const [publishBusy, setPublishBusy] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [historyVersion, setHistoryVersion] = useState(0)
+  // An earlier version shown in the preview (nothing changes until Restore).
+  const [viewing, setViewing] = useState<(VersionSummary & { html: string }) | null>(null)
   const [galleryVersion, setGalleryVersion] = useState(0)
   const [usage, setUsage] = useState<Usage | null>(null)
 
@@ -85,6 +90,7 @@ function Workspace() {
   }, [])
 
   async function handleSend(prompt: string) {
+    setViewing(null) // edits always build on the latest version
     setMessages((m) => [...m, { role: 'user', text: prompt }])
     setLoading(true)
     setProgress('Starting…')
@@ -157,6 +163,7 @@ function Workspace() {
 
       setMessages((m) => [...m, { role: 'assistant', text: 'Done — updated the preview.' }])
       setGalleryVersion((v) => v + 1)
+      setHistoryVersion((v) => v + 1)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Generation failed'
       setMessages((m) => [...m, { role: 'assistant', text: `Error: ${message}` }])
@@ -172,6 +179,7 @@ function Workspace() {
     setHtml(selection.html)
     setPublishedUrl(selection.publishedUrl)
     setPublishedStale(false)
+    setViewing(null)
     setMessages(
       selection.history.flatMap((prompt) => [
         { role: 'user' as const, text: prompt },
@@ -186,6 +194,38 @@ function Workspace() {
     setMessages([])
     setPublishedUrl(null)
     setPublishedStale(false)
+    setViewing(null)
+    setHistoryOpen(false)
+  }
+
+  async function handleViewVersion(version: VersionSummary) {
+    if (!projectId) return
+    const res = await apiFetch(`/api/projects/${projectId}/versions/${version.id}`)
+    if (!res.ok) return
+    const data = await res.json()
+    setViewing({ ...version, html: data.html })
+  }
+
+  async function handleRestore() {
+    if (!projectId || !viewing) return
+    const res = await apiFetch(`/api/projects/${projectId}/versions/${viewing.id}/restore`, {
+      method: 'POST',
+    })
+    if (!res.ok) {
+      setMessages((m) => [...m, { role: 'assistant', text: 'Error: could not restore that version.' }])
+      return
+    }
+    const data = await res.json()
+    setHtml(data.html)
+    setMessages((m) => [
+      ...m,
+      { role: 'user', text: data.history[data.history.length - 1] },
+      { role: 'assistant', text: 'Done — that version is back.' },
+    ])
+    setViewing(null)
+    setHistoryVersion((v) => v + 1)
+    setGalleryVersion((v) => v + 1)
+    setPublishedStale(publishedUrl !== null)
   }
 
   async function changePublished(method: 'POST' | 'DELETE') {
@@ -212,8 +252,9 @@ function Workspace() {
   // Built from the HTML already on screen: a plain link to the backend
   // couldn't carry the sign-in token.
   function handleDownload() {
-    if (!html) return
-    const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }))
+    const shown = viewing?.html ?? html // whichever version is on screen
+    if (!shown) return
+    const url = URL.createObjectURL(new Blob([shown], { type: 'text/html' }))
     const link = document.createElement('a')
     link.href = url
     link.download = `${projectId ?? 'site'}.html`
@@ -242,15 +283,39 @@ function Workspace() {
         />
       </div>
       <div>
-        <Preview html={html} building={loading} liveCode={liveCode} />
+        {viewing && (
+          <div className="viewing">
+            <span>
+              Viewing version {viewing.number}
+              {viewing.prompt && <> · “{viewing.prompt}”</>}
+            </span>
+            <button type="button" className="viewing__restore" onClick={handleRestore}>
+              Restore this version
+            </button>
+            <button type="button" onClick={() => setViewing(null)}>
+              Back to latest
+            </button>
+          </div>
+        )}
+        <Preview html={viewing?.html ?? html} building={loading} liveCode={liveCode} />
         {html && !loading && projectId && (
           <SiteActions
             publishedUrl={publishedUrl}
             stale={publishedStale}
             busy={publishBusy}
+            historyOpen={historyOpen}
+            onToggleHistory={() => setHistoryOpen((open) => !open)}
             onDownload={handleDownload}
             onPublish={() => changePublished('POST')}
             onUnpublish={() => changePublished('DELETE')}
+          />
+        )}
+        {historyOpen && projectId && !loading && (
+          <VersionHistory
+            projectId={projectId}
+            refreshKey={historyVersion}
+            viewingId={viewing?.id ?? null}
+            onView={handleViewVersion}
           />
         )}
       </div>

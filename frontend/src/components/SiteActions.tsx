@@ -5,6 +5,8 @@ type Props = {
   // The site was edited after it was published: the link shows an older version.
   stale: boolean
   busy: boolean
+  historyOpen: boolean
+  onToggleHistory: () => void
   onDownload: () => void
   onPublish: () => void
   onUnpublish: () => void
@@ -14,6 +16,8 @@ export default function SiteActions({
   publishedUrl,
   stale,
   busy,
+  historyOpen,
+  onToggleHistory,
   onDownload,
   onPublish,
   onUnpublish,
@@ -30,6 +34,9 @@ export default function SiteActions({
   return (
     <div className="site-actions">
       <div className="site-actions__row">
+        <button type="button" onClick={onToggleHistory} aria-expanded={historyOpen}>
+          {historyOpen ? 'Hide history' : 'History'}
+        </button>
         <button type="button" onClick={onDownload}>
           Download HTML
         </button>
