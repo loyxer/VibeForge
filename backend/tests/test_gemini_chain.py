@@ -38,6 +38,7 @@ class FakeClient:
 
     async def generate_content_stream(self, model, contents):
         self.calls.append(model)
+        self.contents = contents
         results = self.script[model]
         result = results.pop(0) if len(results) > 1 else results[0]
         return self._chunks(model, result)
@@ -189,6 +190,13 @@ def test_other_errors_are_not_swallowed():
     with pytest.raises(ValueError):
         generate(gen)
     assert client.calls == ["a"]
+
+
+def test_style_goes_into_the_prompt():
+    gen, client = make({"a": ["<html>a</html>"]})
+    asyncio.run(gen.generate(GenerationRequest(prompt="a bakery", style="Retro: warm")))
+    assert "Visual style for this site: Retro: warm" in client.contents
+    assert client.contents.rstrip().endswith("Instruction: a bakery")
 
 
 def test_strips_markdown_fence():

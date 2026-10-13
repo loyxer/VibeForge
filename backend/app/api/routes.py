@@ -13,6 +13,7 @@ from app import projects, usage
 from app.auth import current_user
 from app.generation.base import GenerationRequest, SiteGenerator, finish_html
 from app.generation.gemini import ModelsBusyError, QuotaExceededError
+from app.generation.styles import STYLES
 
 logger = logging.getLogger("vibeforge")
 
@@ -37,6 +38,7 @@ _generator = _build_generator()
 class GenerateBody(BaseModel):
     prompt: str
     project_id: Optional[str] = None
+    style: Optional[str] = None  # an id from STYLES; None = let the AI decide
 
 
 @router.post("/generate")
@@ -55,6 +57,8 @@ async def generate(body: GenerateBody, user: str = Depends(current_user)):
     """
     if not body.prompt.strip():
         raise HTTPException(status_code=400, detail="Prompt is empty")
+    if body.style is not None and body.style not in STYLES:
+        raise HTTPException(status_code=400, detail="Unknown style")
 
     # The database calls are blocking — run them off the event loop so one
     # request never stalls the others.
@@ -73,7 +77,11 @@ async def generate(body: GenerateBody, user: str = Depends(current_user)):
             raise HTTPException(status_code=404, detail="Project not found")
         previous_html = project["html"]
 
-    request = GenerationRequest(prompt=body.prompt, previous_html=previous_html)
+    request = GenerationRequest(
+        prompt=body.prompt,
+        previous_html=previous_html,
+        style=STYLES.get(body.style) if body.style else None,
+    )
     return StreamingResponse(
         _generation_events(request, body, user), media_type="application/x-ndjson"
     )

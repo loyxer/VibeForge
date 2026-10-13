@@ -23,6 +23,7 @@ Event = tuple[Literal["status", "model", "text", "reset"], str]
 class GenerationRequest:
     prompt: str
     previous_html: Optional[str] = None
+    style: Optional[str] = None  # design direction, see styles.py
 
 
 @dataclass

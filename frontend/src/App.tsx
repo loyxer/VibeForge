@@ -69,6 +69,7 @@ function Workspace() {
   const [loading, setLoading] = useState(false)
   const [progress, setProgress] = useState<string | null>(null)
   const [liveCode, setLiveCode] = useState('')
+  const [style, setStyle] = useState<string | null>(null)
   const [galleryVersion, setGalleryVersion] = useState(0)
   const [usage, setUsage] = useState<Usage | null>(null)
 
@@ -89,7 +90,8 @@ function Workspace() {
         apiFetch('/api/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prompt, project_id: id }),
+          // The style shapes a new site; edits keep the site's own look.
+          body: JSON.stringify({ prompt, project_id: id, style: id ? null : style }),
         })
 
       let res = await post(projectId)
@@ -165,6 +167,12 @@ function Workspace() {
     )
   }
 
+  function handleNewSite() {
+    setProjectId(null)
+    setHtml(null)
+    setMessages([])
+  }
+
   function handleGalleryDelete(deletedId: string) {
     if (deletedId === projectId) {
       setProjectId(null)
@@ -193,6 +201,10 @@ function Workspace() {
           loading={loading}
           progress={progress}
           usage={usage}
+          isNewSite={projectId === null}
+          style={style}
+          onStyleChange={setStyle}
+          onNewSite={handleNewSite}
           onSend={handleSend}
         />
         <Gallery

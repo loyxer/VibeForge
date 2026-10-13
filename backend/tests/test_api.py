@@ -64,6 +64,37 @@ def test_responses_carry_the_api_version(client):
     assert f"const API_VERSION = '{API_VERSION}'" in frontend  # kept in sync
 
 
+def test_style_reaches_the_generator(client, monkeypatch):
+    from app.generation.styles import STYLES
+
+    seen = []
+
+    class Recording(MockGenerator):
+        async def stream(self, request):
+            seen.append(request.style)
+            async for event in super().stream(request):
+                yield event
+
+    monkeypatch.setattr(routes, "_generator", Recording(delay=0))
+    generate(client, "a bakery")  # no style: the AI decides
+    res = client.post("/api/generate", json={"prompt": "a bakery", "style": "retro"})
+    assert res.status_code == 200
+    assert seen == [None, STYLES["retro"]]
+
+
+def test_unknown_style_rejected(client):
+    res = client.post("/api/generate", json={"prompt": "x", "style": "vaporwave"})
+    assert res.status_code == 400
+
+
+def test_style_ids_match_the_frontend():
+    from app.generation.styles import STYLES
+
+    picker = (Path(__file__).parents[2] / "frontend/src/components/StylePicker.tsx").read_text()
+    for style_id in STYLES:
+        assert f"id: '{style_id}'" in picker
+
+
 def test_empty_prompt_rejected(client):
     assert client.post("/api/generate", json={"prompt": "  "}).status_code == 400
 

@@ -1,5 +1,6 @@
 import { FormEvent, useState } from 'react'
 import type { Usage } from '../api'
+import StylePicker from './StylePicker'
 
 export type ChatMessage = {
   role: 'user' | 'assistant'
@@ -11,10 +12,25 @@ type Props = {
   loading: boolean
   progress: string | null
   usage: Usage | null
+  // Picking a style only makes sense before the first generation of a site.
+  isNewSite: boolean
+  style: string | null
+  onStyleChange: (style: string | null) => void
+  onNewSite: () => void
   onSend: (prompt: string) => void
 }
 
-export default function Chat({ messages, loading, progress, usage, onSend }: Props) {
+export default function Chat({
+  messages,
+  loading,
+  progress,
+  usage,
+  isNewSite,
+  style,
+  onStyleChange,
+  onNewSite,
+  onSend,
+}: Props) {
   const [input, setInput] = useState('')
   const limitReached = usage?.remaining_today === 0
 
@@ -32,6 +48,13 @@ export default function Chat({ messages, loading, progress, usage, onSend }: Pro
 
   return (
     <div className="chat">
+      {!isNewSite && (
+        <div className="chat__toolbar">
+          <button type="button" onClick={onNewSite} disabled={loading}>
+            + New site
+          </button>
+        </div>
+      )}
       <div className="chat__messages">
         {messages.length === 0 && (
           <p className="chat__empty">
@@ -50,6 +73,7 @@ export default function Chat({ messages, loading, progress, usage, onSend }: Pro
       </div>
 
       <form className="chat__form" onSubmit={handleSubmit}>
+        {isNewSite && <StylePicker value={style} onChange={onStyleChange} />}
         {usage?.limit != null && (
           <p className={`chat__usage${limitReached ? ' chat__usage--empty' : ''}`}>
             {limitReached
@@ -61,7 +85,7 @@ export default function Chat({ messages, loading, progress, usage, onSend }: Pro
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder={
-            messages.length === 0
+            isNewSite
               ? 'a landing page for a coffee shop'
               : 'make the button blue'
           }
