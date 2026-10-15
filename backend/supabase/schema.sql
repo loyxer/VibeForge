@@ -74,3 +74,6 @@ create index if not exists project_versions_project_created_idx
 
 alter table public.project_versions enable row level security;
 grant select, insert, delete on public.project_versions to service_role;
+
+-- A name the owner gave the site (null = called by its first request).
+alter table public.projects add column if not exists name text;

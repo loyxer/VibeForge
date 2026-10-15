@@ -9,7 +9,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel
 
-from app import photos, projects, publishing, usage, versions
+from app import auth, photos, projects, publishing, supabase, usage, versions
 from app.auth import current_user
 from app.generation.base import GenerationRequest, SiteGenerator, finish_html
 from app.generation.gemini import ModelsBusyError, QuotaExceededError
@@ -173,6 +173,34 @@ def delete_project(project_id: str, user: str = Depends(current_user)):
         raise HTTPException(status_code=404, detail="Project not found")
     publishing.forget_project(project_id)
     versions.forget_project(project_id)
+    return {"status": "deleted"}
+
+
+class RenameBody(BaseModel):
+    name: Optional[str] = None
+
+
+@router.patch("/projects/{project_id}")
+def rename_project(project_id: str, body: RenameBody, user: str = Depends(current_user)):
+    name = (body.name or "").strip()
+    if len(name) > 80:
+        raise HTTPException(status_code=400, detail="Name is too long (80 characters at most)")
+    try:
+        projects.rename_project(project_id, user, name)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return {"name": name or None}
+
+
+@router.delete("/account")
+def delete_account(user: str = Depends(current_user)):
+    """Delete the signed-in user's account and everything in it, at once."""
+    if supabase.config():
+        auth.delete_account(user)
+    else:
+        for project_id in projects.delete_all(user):
+            publishing.forget_project(project_id)
+            versions.forget_project(project_id)
     return {"status": "deleted"}
 
 

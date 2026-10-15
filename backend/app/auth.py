@@ -36,3 +36,19 @@ async def current_user(authorization: str | None = Header(default=None)) -> str:
     if res.status_code != 200:
         raise HTTPException(status_code=401, detail="Session expired — sign in again")
     return res.json()["id"]
+
+
+def delete_account(user_id: str) -> None:
+    """Remove the user from Supabase Auth. Their projects, versions,
+    published sites and usage rows go with them (on delete cascade)."""
+    config = supabase.config()
+    if config is None:
+        return
+    url, key = config
+    res = httpx.delete(
+        f"{url}/auth/v1/admin/users/{user_id}",
+        headers={"apikey": key, "Authorization": f"Bearer {key}"},
+        timeout=15,
+    )
+    if res.status_code not in (200, 204, 404):
+        res.raise_for_status()

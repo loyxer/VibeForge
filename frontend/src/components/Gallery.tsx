@@ -5,11 +5,13 @@ import { useT } from '../i18n'
 type GalleryItem = {
   id: string
   history: string[]
+  name: string | null
 }
 
 type ProjectData = {
   html: string
   history: string[]
+  name: string | null
   published_url: string | null
 }
 
@@ -17,6 +19,7 @@ export type GallerySelection = {
   projectId: string
   html: string
   history: string[]
+  name: string | null
   publishedUrl: string | null
 }
 
@@ -24,11 +27,12 @@ type Props = {
   currentId: string | null
   onSelect: (selection: GallerySelection) => void
   onDelete: (projectId: string) => void
+  onRename: (projectId: string, name: string | null) => void
   onClose: () => void
 }
 
 // "My sites": every project as a card with a live miniature of the page.
-export default function Gallery({ currentId, onSelect, onDelete, onClose }: Props) {
+export default function Gallery({ currentId, onSelect, onDelete, onRename, onClose }: Props) {
   const t = useT()
   const [items, setItems] = useState<GalleryItem[] | null>(null)
   const closeButton = useRef<HTMLButtonElement>(null)
@@ -52,12 +56,24 @@ export default function Gallery({ currentId, onSelect, onDelete, onClose }: Prop
   }, [])
 
   async function handleDelete(item: GalleryItem) {
-    const name = item.history[0] ?? item.id.slice(0, 8)
+    const name = item.name ?? item.history[0] ?? item.id.slice(0, 8)
     if (!window.confirm(t('gallery.confirmDelete', { name: t.server(name) }))) return
     const res = await apiFetch(`/api/projects/${item.id}`, { method: 'DELETE' })
     if (!res.ok && res.status !== 404) return
     setItems((prev) => prev?.filter((p) => p.id !== item.id) ?? null)
     onDelete(item.id)
+  }
+
+  async function handleRename(item: GalleryItem, name: string) {
+    const res = await apiFetch(`/api/projects/${item.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    })
+    if (!res.ok) return
+    const saved: string | null = (await res.json()).name
+    setItems((prev) => prev?.map((p) => (p.id === item.id ? { ...p, name: saved } : p)) ?? null)
+    onRename(item.id, saved)
   }
 
   return (
@@ -82,6 +98,7 @@ export default function Gallery({ currentId, onSelect, onDelete, onClose }: Prop
                 current={item.id === currentId}
                 onOpen={onSelect}
                 onDelete={() => handleDelete(item)}
+                onRename={(name) => handleRename(item, name)}
               />
             ))}
           </ul>
@@ -96,10 +113,12 @@ type CardProps = {
   current: boolean
   onOpen: (selection: GallerySelection) => void
   onDelete: () => void
+  onRename: (name: string) => void
 }
 
-function SiteCard({ item, current, onOpen, onDelete }: CardProps) {
+function SiteCard({ item, current, onOpen, onDelete, onRename }: CardProps) {
   const t = useT()
+  const [renaming, setRenaming] = useState(false)
   const [project, setProject] = useState<ProjectData | null>(null)
 
   useEffect(() => {
@@ -120,24 +139,59 @@ function SiteCard({ item, current, onOpen, onDelete }: CardProps) {
       projectId: item.id,
       html: data.html,
       history: data.history ?? [],
+      name: item.name,
       publishedUrl: data.published_url ?? null,
     })
   }
 
-  const name = item.history[0] ?? item.id.slice(0, 8)
+  const name = item.name ?? item.history[0] ?? item.id.slice(0, 8)
 
   return (
     <li className={`site-card${current ? ' site-card--current' : ''}`}>
       <button type="button" className="site-card__open" onClick={open}>
         <Thumb html={project?.html ?? null} />
-        <span className="site-card__name">{t.server(name)}</span>
+        {!renaming && <span className="site-card__name">{t.server(name)}</span>}
         <span className="site-card__meta">
           {current ? t('gallery.current') : t.plural('gallery.steps', item.history.length)}
         </span>
       </button>
-      <button type="button" className="site-card__delete btn btn--small" onClick={onDelete}>
-        {t('gallery.delete')}
-      </button>
+      {renaming && (
+        <form
+          className="site-card__rename"
+          onSubmit={(e) => {
+            e.preventDefault()
+            const value = new FormData(e.currentTarget).get('name') as string
+            setRenaming(false)
+            onRename(value)
+          }}
+        >
+          <input
+            name="name"
+            autoFocus
+            maxLength={80}
+            defaultValue={item.name ?? ''}
+            placeholder={t.server(item.history[0] ?? '')}
+            aria-label={t('gallery.renameLabel')}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                e.stopPropagation() // don't close the whole gallery
+                setRenaming(false)
+              }
+            }}
+          />
+          <button type="submit" className="btn btn--small btn--blue">
+            {t('account.save')}
+          </button>
+        </form>
+      )}
+      <div className="site-card__actions">
+        <button type="button" className="btn btn--small" onClick={() => setRenaming(true)}>
+          {t('gallery.rename')}
+        </button>
+        <button type="button" className="btn btn--small btn--danger" onClick={onDelete}>
+          {t('gallery.delete')}
+        </button>
+      </div>
     </li>
   )
 }

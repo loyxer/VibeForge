@@ -4,6 +4,7 @@ import type { Usage } from '../api'
 import { supabase } from '../supabase'
 import { Lang, useLang, useT } from '../i18n'
 import Mascot from './Mascot'
+import { ChangePasswordDialog, DeleteAccountDialog } from './AccountDialogs'
 
 type Props = {
   session: Session | null
@@ -80,6 +81,7 @@ function LangSwitch() {
 function AccountMenu({ email }: { email: string }) {
   const t = useT()
   const [open, setOpen] = useState(false)
+  const [dialog, setDialog] = useState<'password' | 'delete' | null>(null)
   const box = useRef<HTMLDivElement>(null)
 
   // Close on a click anywhere else or on Escape, like any menu.
@@ -111,11 +113,33 @@ function AccountMenu({ email }: { email: string }) {
       {open && (
         <div className="account__menu">
           <span className="account__email">{email}</span>
+          <button
+            type="button"
+            className="btn btn--small"
+            onClick={() => {
+              setOpen(false)
+              setDialog('password')
+            }}
+          >
+            {t('account.changePassword')}
+          </button>
           <button type="button" className="btn btn--small" onClick={() => supabase?.auth.signOut()}>
             {t('app.signOut')}
           </button>
+          <button
+            type="button"
+            className="btn btn--small btn--danger"
+            onClick={() => {
+              setOpen(false)
+              setDialog('delete')
+            }}
+          >
+            {t('account.deleteTitle')}
+          </button>
         </div>
       )}
+      {dialog === 'password' && <ChangePasswordDialog onClose={() => setDialog(null)} />}
+      {dialog === 'delete' && <DeleteAccountDialog onClose={() => setDialog(null)} />}
     </div>
   )
 }

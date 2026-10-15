@@ -319,3 +319,26 @@ def test_text_edit_rejects_junk_and_other_peoples_projects(client):
     huge = "<p>" + "x" * 1_000_001
     assert client.post(f"/api/projects/{project_id}/text-edit", json={"html": huge}).status_code == 400
     assert client.post("/api/projects/nope/text-edit", json={"html": "<p>x</p>"}).status_code == 404
+
+
+def test_rename_project(client):
+    project_id = generate(client, "a coffee shop")["project_id"]
+
+    res = client.patch(f"/api/projects/{project_id}", json={"name": "  Кава  "})
+    assert res.json() == {"name": "Кава"}
+    assert client.get(f"/api/projects/{project_id}").json()["name"] == "Кава"
+    assert client.get("/api/projects").json()["items"][0]["name"] == "Кава"
+
+    # Blank goes back to the default (first request).
+    client.patch(f"/api/projects/{project_id}", json={"name": " "})
+    assert client.get(f"/api/projects/{project_id}").json()["name"] is None
+
+    assert client.patch(f"/api/projects/{project_id}", json={"name": "x" * 81}).status_code == 400
+    assert client.patch("/api/projects/nope", json={"name": "a"}).status_code == 404
+
+
+def test_delete_account_removes_everything(client):
+    project_id = generate(client, "a coffee shop")["project_id"]
+    assert client.delete("/api/account").json() == {"status": "deleted"}
+    assert client.get(f"/api/projects/{project_id}").status_code == 404
+    assert client.get("/api/projects").json()["items"] == []

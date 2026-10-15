@@ -14,7 +14,7 @@ import threading
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 from app import supabase
 from app.auth import LOCAL_USER
@@ -37,7 +37,7 @@ def _sb_get(config, project_id: str, owner: str) -> dict[str, Any]:
             params={
                 "id": f"eq.{_as_uuid(project_id)}",
                 "user_id": f"eq.{owner}",
-                "select": "html,history",
+                "select": "html,history,name",
             },
         )
     res.raise_for_status()
@@ -79,12 +79,25 @@ def _sb_list(config, owner: str) -> list[dict[str, Any]]:
             "/projects",
             params={
                 "user_id": f"eq.{owner}",
-                "select": "id,history",
+                "select": "id,history,name",
                 "order": "updated_at.desc",
             },
         )
     res.raise_for_status()
     return res.json()
+
+
+def _sb_rename(config, project_id: str, owner: str, name: Optional[str]) -> None:
+    with _rest(config) as client:
+        res = client.patch(
+            "/projects",
+            params={"id": f"eq.{_as_uuid(project_id)}", "user_id": f"eq.{owner}"},
+            json={"name": name},
+            headers={"Prefer": "return=representation"},
+        )
+    res.raise_for_status()
+    if not res.json():
+        raise KeyError(project_id)
 
 
 def _sb_delete(config, project_id: str, owner: str) -> None:
@@ -160,7 +173,11 @@ def get_project(project_id: str, owner: str) -> dict[str, Any]:
         return _sb_get(config, project_id, owner)
     with _lock:
         project = _owned(_read(), project_id, owner)
-        return {"html": project["html"], "history": project["history"]}
+        return {
+            "html": project["html"],
+            "history": project["history"],
+            "name": project.get("name"),
+        }
 
 
 def list_projects(owner: str) -> list[dict[str, Any]]:
@@ -168,7 +185,7 @@ def list_projects(owner: str) -> list[dict[str, Any]]:
         return _sb_list(config, owner)
     with _lock:
         return [
-            {"id": pid, "history": p["history"]}
+            {"id": pid, "history": p["history"], "name": p.get("name")}
             for pid, p in _read().items()
             if _owner_of(p) == owner
         ]
@@ -182,3 +199,26 @@ def delete_project(project_id: str, owner: str) -> None:
         _owned(data, project_id, owner)
         del data[project_id]
         _write(data)
+
+
+def rename_project(project_id: str, owner: str, name: Optional[str]) -> None:
+    """Give a project a name; None or blank goes back to the default (the
+    first request)."""
+    name = (name or "").strip() or None
+    if config := supabase.config():
+        return _sb_rename(config, project_id, owner, name)
+    with _lock:
+        data = _read()
+        project = _owned(data, project_id, owner)
+        project["name"] = name
+        _write(data)
+
+
+def delete_all(owner: str) -> list[str]:
+    """Drop every project of a user (local mode only — in Supabase deleting
+    the account cascades). Returns the removed ids."""
+    with _lock:
+        data = _read()
+        gone = [pid for pid, p in data.items() if _owner_of(p) == owner]
+        _write({pid: p for pid, p in data.items() if pid not in gone})
+        return gone

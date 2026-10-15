@@ -104,7 +104,9 @@ function PrivacyEn() {
       <h3>How long we keep it</h3>
       <p>
         Until you delete it. You can delete any project in the app. To delete your whole
-        account and everything in it, email us and we will do it within 30 days.
+        account and everything in it, choose "Delete account" in the account menu —
+        everything is deleted immediately, including published sites (their links stop
+        working). This cannot be undone.
       </p>
 
       <h3>Your rights</h3>
@@ -183,7 +185,9 @@ function PrivacyUk() {
       <h3>Як довго ми зберігаємо дані</h3>
       <p>
         Доки ви їх не видалите. Будь-який проєкт можна видалити в застосунку. Щоб видалити весь
-        акаунт і все, що в ньому, напишіть нам — ми зробимо це протягом 30 днів.
+        акаунт і все, що в ньому, натисніть «Видалити акаунт» у меню акаунта — усе буде видалено
+        одразу, разом з опублікованими сайтами (їхні посилання перестануть працювати). Цю дію не
+        можна скасувати.
       </p>
 
       <h3>Ваші права</h3>

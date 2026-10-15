@@ -91,6 +91,7 @@ function Workspace({ session }: { session: Session | null }) {
   const [savingEdit, setSavingEdit] = useState(false)
   const preview = useRef<PreviewHandle>(null)
   const [galleryOpen, setGalleryOpen] = useState(false)
+  const [projectName, setProjectName] = useState<string | null>(null)
   const [usage, setUsage] = useState<Usage | null>(null)
 
   useEffect(() => {
@@ -193,6 +194,7 @@ function Workspace({ session }: { session: Session | null }) {
 
   function handleGallerySelect(selection: GallerySelection) {
     setGalleryOpen(false)
+    setProjectName(selection.name)
     setProjectId(selection.projectId)
     setHtml(selection.html)
     setPublishedUrl(selection.publishedUrl)
@@ -209,6 +211,7 @@ function Workspace({ session }: { session: Session | null }) {
   }
 
   function handleNewSite() {
+    setProjectName(null)
     setProjectId(null)
     setHtml(null)
     setMessages([])
@@ -292,6 +295,10 @@ function Workspace({ session }: { session: Session | null }) {
     }
   }
 
+  function handleGalleryRename(renamedId: string, name: string | null) {
+    if (renamedId === projectId) setProjectName(name)
+  }
+
   function handleGalleryDelete(deletedId: string) {
     if (deletedId === projectId) handleNewSite()
   }
@@ -309,9 +316,14 @@ function Workspace({ session }: { session: Session | null }) {
     URL.revokeObjectURL(url)
   }
 
-  // Until projects can be renamed, a site is called by its first request.
+  // A site is called by the name its owner gave it, else by its first request.
   const firstPrompt = messages.find((m) => m.role === 'user')
-  const title = projectId && firstPrompt && 'text' in firstPrompt ? firstPrompt.text : t('chat.newSite')
+  const title =
+    projectId && projectName
+      ? projectName
+      : projectId && firstPrompt && 'text' in firstPrompt
+        ? firstPrompt.text
+        : t('chat.newSite')
 
   return (
     <Shell session={session} workspace usage={usage} onOpenGallery={() => setGalleryOpen(true)}>
@@ -407,6 +419,7 @@ function Workspace({ session }: { session: Session | null }) {
           currentId={projectId}
           onSelect={handleGallerySelect}
           onDelete={handleGalleryDelete}
+          onRename={handleGalleryRename}
           onClose={() => setGalleryOpen(false)}
         />
       )}
