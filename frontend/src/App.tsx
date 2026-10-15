@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import Chat, { ChatMessage } from './components/Chat'
-import Preview from './components/Preview'
+import Preview, { PreviewHandle } from './components/Preview'
 import Gallery, { GallerySelection } from './components/Gallery'
 import SignIn from './components/SignIn'
 import SiteActions from './components/SiteActions'
@@ -82,6 +82,10 @@ function Workspace() {
   const [historyVersion, setHistoryVersion] = useState(0)
   // An earlier version shown in the preview (nothing changes until Restore).
   const [viewing, setViewing] = useState<(VersionSummary & { html: string }) | null>(null)
+  // Editing the text by hand in the preview (no AI).
+  const [editing, setEditing] = useState(false)
+  const [savingEdit, setSavingEdit] = useState(false)
+  const preview = useRef<PreviewHandle>(null)
   const [galleryVersion, setGalleryVersion] = useState(0)
   const [usage, setUsage] = useState<Usage | null>(null)
 
@@ -183,6 +187,7 @@ function Workspace() {
     setPublishedUrl(selection.publishedUrl)
     setPublishedStale(false)
     setViewing(null)
+    setEditing(false)
     setMessages(
       selection.history.flatMap((prompt) => [
         { role: 'user' as const, text: prompt },
@@ -199,6 +204,7 @@ function Workspace() {
     setPublishedStale(false)
     setViewing(null)
     setHistoryOpen(false)
+    setEditing(false)
   }
 
   async function handleViewVersion(version: VersionSummary) {
@@ -229,6 +235,36 @@ function Workspace() {
     setHistoryVersion((v) => v + 1)
     setGalleryVersion((v) => v + 1)
     setPublishedStale(publishedUrl !== null)
+  }
+
+  async function handleSaveEdit() {
+    if (!projectId || !preview.current) return
+    setSavingEdit(true)
+    try {
+      const edited = await preview.current.getEditedHtml()
+      const res = await apiFetch(`/api/projects/${projectId}/text-edit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ html: edited }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.detail ?? `Server error: ${res.status}`)
+      setHtml(data.html)
+      setMessages((m) => [
+        ...m,
+        { role: 'user', text: data.history[data.history.length - 1] },
+        { role: 'assistant', text: 'Saved your changes.' },
+      ])
+      setEditing(false)
+      setHistoryVersion((v) => v + 1)
+      setGalleryVersion((v) => v + 1)
+      setPublishedStale(publishedUrl !== null)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Could not save'
+      setMessages((m) => [...m, { role: 'assistant', text: `Error: ${message}` }])
+    } finally {
+      setSavingEdit(false)
+    }
   }
 
   async function changePublished(method: 'POST' | 'DELETE') {
@@ -274,6 +310,7 @@ function Workspace() {
           progress={progress}
           usage={usage}
           isNewSite={projectId === null}
+          paused={editing}
           style={style}
           onStyleChange={setStyle}
           onNewSite={handleNewSite}
@@ -300,20 +337,41 @@ function Workspace() {
             </button>
           </div>
         )}
-        <Preview html={viewing?.html ?? html} building={loading} liveCode={liveCode} />
-        {html && !loading && projectId && (
+        {editing && (
+          <div className="viewing">
+            <span>Click any text on the page to change it. Buttons and menus are paused while you edit.</span>
+            <button type="button" className="viewing__restore" onClick={handleSaveEdit} disabled={savingEdit}>
+              {savingEdit ? 'Saving…' : 'Save changes'}
+            </button>
+            <button type="button" onClick={() => setEditing(false)} disabled={savingEdit}>
+              Cancel
+            </button>
+          </div>
+        )}
+        <Preview
+          ref={preview}
+          html={viewing?.html ?? html}
+          building={loading}
+          liveCode={liveCode}
+          editing={editing}
+        />
+        {html && !loading && !editing && projectId && (
           <SiteActions
             publishedUrl={publishedUrl}
             stale={publishedStale}
             busy={publishBusy}
             historyOpen={historyOpen}
             onToggleHistory={() => setHistoryOpen((open) => !open)}
+            onEditText={() => {
+              setViewing(null) // edits always apply to the current version
+              setEditing(true)
+            }}
             onDownload={handleDownload}
             onPublish={() => changePublished('POST')}
             onUnpublish={() => changePublished('DELETE')}
           />
         )}
-        {historyOpen && projectId && !loading && (
+        {historyOpen && projectId && !loading && !editing && (
           <VersionHistory
             projectId={projectId}
             refreshKey={historyVersion}

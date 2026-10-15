@@ -297,3 +297,25 @@ def test_versions_of_unknown_projects_are_404(client):
     project_id = generate(client, "a bakery")["project_id"]
     assert client.get(f"/api/projects/{project_id}/versions/999").status_code == 404
     assert client.post(f"/api/projects/{project_id}/versions/999/restore").status_code == 404
+
+
+def test_text_edit_saves_a_free_new_version(client, monkeypatch):
+    monkeypatch.setattr(usage, "DAILY_LIMIT", 5)
+    project_id = generate(client, "a bakery")["project_id"]
+    edited = "<!doctype html><html><body><h1>Fresh bread daily</h1></body></html>"
+
+    state = client.post(f"/api/projects/{project_id}/text-edit", json={"html": edited}).json()
+    assert state["html"] == edited
+    assert state["history"][-1] == "✎ Edited text by hand"
+    assert client.get(f"/api/projects/{project_id}").json()["html"] == edited
+    items = client.get(f"/api/projects/{project_id}/versions").json()["items"]
+    assert [v["number"] for v in items] == [2, 1]
+    assert client.get("/api/usage").json()["remaining_today"] == 4  # only the generation counted
+
+
+def test_text_edit_rejects_junk_and_other_peoples_projects(client):
+    project_id = generate(client, "a bakery")["project_id"]
+    assert client.post(f"/api/projects/{project_id}/text-edit", json={"html": "no html"}).status_code == 400
+    huge = "<p>" + "x" * 1_000_001
+    assert client.post(f"/api/projects/{project_id}/text-edit", json={"html": huge}).status_code == 400
+    assert client.post("/api/projects/nope/text-edit", json={"html": "<p>x</p>"}).status_code == 404

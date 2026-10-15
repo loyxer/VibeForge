@@ -14,6 +14,8 @@ type Props = {
   usage: Usage | null
   // Picking a style only makes sense before the first generation of a site.
   isNewSite: boolean
+  // While the text is being edited by hand, sending is paused.
+  paused: boolean
   style: string | null
   onStyleChange: (style: string | null) => void
   onNewSite: () => void
@@ -26,6 +28,7 @@ export default function Chat({
   progress,
   usage,
   isNewSite,
+  paused,
   style,
   onStyleChange,
   onNewSite,
@@ -43,7 +46,7 @@ export default function Chat({
 
   function submitPrompt() {
     const prompt = input.trim()
-    if (!prompt || loading || limitReached) return
+    if (!prompt || loading || limitReached || paused) return
     onSend(prompt)
     setInput('')
   }
@@ -104,7 +107,7 @@ export default function Chat({
             }
           }}
         />
-        <button type="submit" disabled={loading || limitReached || !input.trim()}>
+        <button type="submit" disabled={loading || limitReached || paused || !input.trim()}>
           {loading ? 'Generating…' : 'Send'}
         </button>
       </form>

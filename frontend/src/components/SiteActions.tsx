@@ -7,6 +7,7 @@ type Props = {
   busy: boolean
   historyOpen: boolean
   onToggleHistory: () => void
+  onEditText: () => void
   onDownload: () => void
   onPublish: () => void
   onUnpublish: () => void
@@ -18,6 +19,7 @@ export default function SiteActions({
   busy,
   historyOpen,
   onToggleHistory,
+  onEditText,
   onDownload,
   onPublish,
   onUnpublish,
@@ -34,6 +36,9 @@ export default function SiteActions({
   return (
     <div className="site-actions">
       <div className="site-actions__row">
+        <button type="button" onClick={onEditText} title="Change any text yourself — free, no AI">
+          Edit text
+        </button>
         <button type="button" onClick={onToggleHistory} aria-expanded={historyOpen}>
           {historyOpen ? 'Hide history' : 'History'}
         </button>

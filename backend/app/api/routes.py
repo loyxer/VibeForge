@@ -176,6 +176,29 @@ def delete_project(project_id: str, user: str = Depends(current_user)):
     return {"status": "deleted"}
 
 
+class TextEditBody(BaseModel):
+    html: str
+
+
+# Hand edits are whole pages too; anything near this size isn't one.
+_MAX_EDIT_BYTES = 1_000_000
+
+
+@router.post("/projects/{project_id}/text-edit")
+def save_text_edit(project_id: str, body: TextEditBody, user: str = Depends(current_user)):
+    """Save text the user changed by hand in the preview — a new version,
+    no AI involved, so it doesn't count towards the daily limit."""
+    if len(body.html.encode()) > _MAX_EDIT_BYTES or "<" not in body.html:
+        raise HTTPException(status_code=400, detail="That doesn't look like this site's page")
+    prompt = "✎ Edited text by hand"
+    try:
+        projects.update_project(project_id, user, body.html, prompt)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Project not found")
+    versions.add(project_id, user, prompt, body.html)
+    return projects.get_project(project_id, user)
+
+
 @router.get("/projects/{project_id}/versions")
 def list_versions(project_id: str, user: str = Depends(current_user)):
     try:

@@ -1,17 +1,36 @@
-import { useEffect, useRef, useState } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
+import { requestEditedHtml, withEditor } from '../textEditor'
 
 type Props = {
   html: string | null
   building: boolean
   // The tail of the code being written right now, shown as a live strip.
   liveCode: string
+  // Text editing by hand: the page is shown with its text editable.
+  editing: boolean
+}
+
+export type PreviewHandle = {
+  /** While editing: the page with the user's text changes, ready to save. */
+  getEditedHtml: () => Promise<string>
 }
 
 // Double-buffered: a new version loads in a hidden frame and is swapped in
 // only once it has finished loading (fonts, images and all). Reloading the
 // visible frame instead would flash white on every update while the site
 // streams in.
-export default function Preview({ html, building, liveCode }: Props) {
+const Preview = forwardRef<PreviewHandle, Props>(function Preview(
+  { html, building, liveCode, editing },
+  ref,
+) {
+  const editFrame = useRef<HTMLIFrameElement>(null)
+  useImperativeHandle(ref, () => ({
+    getEditedHtml: () =>
+      editFrame.current
+        ? requestEditedHtml(editFrame.current)
+        : Promise.reject(new Error('Not editing')),
+  }))
+
   const [slots, setSlots] = useState<[string | null, string | null]>([null, null])
   const [active, setActive] = useState(0)
   const loading = useRef(false)
@@ -50,6 +69,20 @@ export default function Preview({ html, building, liveCode }: Props) {
 
   const shown = slots[active]
 
+  if (editing && html) {
+    return (
+      <div className="preview">
+        <iframe
+          ref={editFrame}
+          className="preview__frame"
+          srcDoc={withEditor(html)}
+          sandbox="allow-scripts"
+          title="Edit text"
+        />
+      </div>
+    )
+  }
+
   return (
     <div className="preview">
       {[0, 1].map((slot) =>
@@ -75,4 +108,6 @@ export default function Preview({ html, building, liveCode }: Props) {
       )}
     </div>
   )
-}
+})
+
+export default Preview
