@@ -1,35 +1,48 @@
-// The two legal pages, /privacy and /terms. Plain text on purpose: they
-// should say what the code actually does, so update them whenever a new
-// service or kind of data is added.
+// The two legal pages, /privacy and /terms, in English and Ukrainian. Plain
+// text on purpose: they should say what the code actually does, so update
+// them (both languages) whenever a new service or kind of data is added.
 
 import type { ReactNode } from 'react'
-import { useT } from '../i18n'
+import { useLang } from '../i18n'
 
 const CONTACT = 'vibeforge.verify@gmail.com'
-const UPDATED = 'October 15, 2026'
+const UPDATED = { en: 'October 15, 2026', uk: '15 жовтня 2026 р.' }
+
+const FRAME = {
+  en: { back: '← Back to VibeForge', updated: 'Last updated:', contact: 'Contact', questions: 'Questions or requests:' },
+  uk: { back: '← Назад до VibeForge', updated: 'Останнє оновлення:', contact: 'Контакти', questions: 'Питання чи запити:' },
+}
 
 function Page({ title, children }: { title: string; children: ReactNode }) {
-  const t = useT()
+  const { lang } = useLang()
+  const f = FRAME[lang]
   return (
-    <article className="legal card" lang="en">
-      <a href="/">← Back to VibeForge</a>
-      {t('legal.englishOnly') && (
-        <p className="legal__note" lang="uk">
-          {t('legal.englishOnly')}
-        </p>
-      )}
+    <article className="legal card">
+      <a href="/">{f.back}</a>
       <h2>{title}</h2>
-      <p className="legal__updated">Last updated: {UPDATED}</p>
+      <p className="legal__updated">
+        {f.updated} {UPDATED[lang]}
+      </p>
       {children}
-      <h3>Contact</h3>
+      <h3>{f.contact}</h3>
       <p>
-        Questions or requests: <a href={`mailto:${CONTACT}`}>{CONTACT}</a>
+        {f.questions} <a href={`mailto:${CONTACT}`}>{CONTACT}</a>
       </p>
     </article>
   )
 }
 
 export function Privacy() {
+  const { lang } = useLang()
+  return lang === 'uk' ? <PrivacyUk /> : <PrivacyEn />
+}
+
+export function Terms() {
+  const { lang } = useLang()
+  return lang === 'uk' ? <TermsUk /> : <TermsEn />
+}
+
+function PrivacyEn() {
   return (
     <Page title="Privacy Policy">
       <p>
@@ -60,7 +73,7 @@ export function Privacy() {
       </ul>
       <p>
         We do not use advertising or analytics trackers. Your browser stores a sign-in token
-        so you stay signed in.
+        so you stay signed in. Your browser also remembers the interface language you chose.
       </p>
 
       <h3>Who processes it</h3>
@@ -107,7 +120,86 @@ export function Privacy() {
   )
 }
 
-export function Terms() {
+function PrivacyUk() {
+  return (
+    <Page title="Політика конфіденційності">
+      <p>
+        VibeForge — незалежний проєкт, який веде один розробник. Він перетворює текстовий опис
+        на односторінковий сайт. Ця сторінка пояснює, які дані обробляє сервіс і навіщо.
+      </p>
+
+      <h3>Що ми збираємо</h3>
+      <ul>
+        <li>
+          <strong>Ваш акаунт.</strong> Ваша адреса електронної пошти. Якщо ви входите через
+          Google — також ім’я та фото профілю, якими ділиться Google. Якщо ви реєструєтеся з
+          паролем, він зберігається лише в захешованому вигляді; ми ніколи його не бачимо.
+        </li>
+        <li>
+          <strong>Те, що ви створюєте.</strong> Запити, які ви вводите, і сайти, створені за
+          ними, — щоб ваші проєкти були на місці, коли ви повернетеся.
+        </li>
+        <li>
+          <strong>Записи про використання.</strong> Час кожної генерації та те, яка AI-модель її
+          зробила. Так рахується денний ліміт.
+        </li>
+        <li>
+          <strong>Технічні журнали.</strong> Як і на будь-якому сайті, наші хостинг-провайдери
+          записують запити (зокрема IP-адреси) для безпеки та усунення збоїв.
+        </li>
+      </ul>
+      <p>
+        Ми не використовуємо рекламні чи аналітичні трекери. Ваш браузер зберігає токен входу,
+        щоб ви залишалися в акаунті. Також браузер запам’ятовує вибрану вами мову інтерфейсу.
+      </p>
+
+      <h3>Хто обробляє дані</h3>
+      <ul>
+        <li><strong>Supabase</strong> зберігає акаунти й проєкти (сервери в ЄС, Ірландія).</li>
+        <li><strong>Render</strong> запускає наш сервер (США), а <strong>Vercel</strong> віддає сайт.</li>
+        <li>
+          <strong>Google Gemini</strong> створює сайти: ваш запит і поточна версія вашого сайту
+          надсилаються в Google. Ми користуємося безкоштовним рівнем Google, на якому Google
+          може використовувати цей вміст для покращення своїх продуктів, а читати його можуть
+          люди-рецензенти.{' '}
+          <strong>Не вказуйте в запитах особисту чи конфіденційну інформацію.</strong>
+        </li>
+        <li><strong>Gmail</strong> надсилає коди для входу та відновлення пароля.</li>
+        <li>
+          <strong>Unsplash</strong> надає фото: наш сервер надсилає йому лише короткі описи фото,
+          які пише AI (наприклад, «latte art on a wooden table»), і ніколи — дані вашого акаунта.
+          Створені й опубліковані сайти завантажують ці фото із серверів Unsplash.
+        </li>
+      </ul>
+      <p>Ми не продаємо ваші дані й не передаємо їх нікому іншому.</p>
+
+      <h3>Опубліковані сайти</h3>
+      <p>
+        Коли ви публікуєте сайт, його може побачити будь-хто, у кого є посилання, без входу в
+        акаунт. Ваше ім’я та пошта на ньому не показуються. Щоб прибрати сайт, зніміть його з
+        публікації або видаліть проєкт.
+      </p>
+
+      <h3>Як довго ми зберігаємо дані</h3>
+      <p>
+        Доки ви їх не видалите. Будь-який проєкт можна видалити в застосунку. Щоб видалити весь
+        акаунт і все, що в ньому, напишіть нам — ми зробимо це протягом 30 днів.
+      </p>
+
+      <h3>Ваші права</h3>
+      <p>
+        Ви можете будь-коли попросити копію своїх даних, їх виправлення чи видалення, написавши
+        нам. Якщо ви перебуваєте в ЄС, ви також маєте право подати скаргу до свого органу із
+        захисту даних.
+      </p>
+
+      <h3>Діти</h3>
+      <p>VibeForge не призначений для дітей віком до 16 років.</p>
+    </Page>
+  )
+}
+
+function TermsEn() {
   return (
     <Page title="Terms of Service">
       <p>By using VibeForge you agree to these terms.</p>
@@ -144,6 +236,49 @@ export function Terms() {
       <p>
         We may update these terms; the date at the top shows the latest version. See also
         our <a href="/privacy">Privacy Policy</a>.
+      </p>
+    </Page>
+  )
+}
+
+function TermsUk() {
+  return (
+    <Page title="Умови використання">
+      <p>Користуючись VibeForge, ви погоджуєтеся з цими умовами.</p>
+
+      <h3>Сервіс</h3>
+      <p>
+        VibeForge створює односторінкові сайти з текстових описів за допомогою AI. Це
+        безкоштовний сервіс на ранньому етапі розробки, що надається «як є»: він може працювати
+        повільно, бути недоступним або змінитися будь-коли, а ліміти (зараз 5 генерацій на день)
+        можуть змінюватися.
+      </p>
+
+      <h3>Те, що ви створюєте</h3>
+      <p>
+        Створені вами сайти належать вам для використання. Результат роботи AI може містити
+        помилки й бути схожим на те, що створюють інші люди, тож перевірте сайт перед
+        публікацією. Ви відповідаєте за те, як його використовуєте.
+      </p>
+
+      <h3>Правила</h3>
+      <ul>
+        <li>Не створюйте незаконний вміст, фішингові чи шахрайські сторінки, шкідливе ПЗ або сайти, що видають себе за реальних людей чи організації.</li>
+        <li>Не намагайтеся обійти ліміти, наприклад за допомогою кількох акаунтів.</li>
+        <li>Не атакуйте сервіс і не перевантажуйте його.</li>
+      </ul>
+      <p>Ми можемо призупинити акаунти, що порушують ці правила.</p>
+
+      <h3>Відповідальність</h3>
+      <p>
+        Наскільки це дозволяє закон, VibeForge не несе відповідальності за збитки, спричинені
+        використанням сервісу чи створених ним сайтів.
+      </p>
+
+      <h3>Зміни</h3>
+      <p>
+        Ми можемо оновлювати ці умови; дата вгорі показує останню версію. Див. також нашу{' '}
+        <a href="/privacy">Політику конфіденційності</a>.
       </p>
     </Page>
   )

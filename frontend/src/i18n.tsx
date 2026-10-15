@@ -148,8 +148,6 @@ const en = {
   'auth.weakPassword': 'The password is too short — use at least 8 characters.',
   'auth.rateLimit': 'Too many emails in a short time — wait a few minutes and try again.',
   'auth.samePassword': 'The new password must be different from the old one.',
-
-  'legal.englishOnly': '',
 } as const
 
 export type Key = keyof typeof en
@@ -295,8 +293,6 @@ const uk: Record<Key, string> = {
   'auth.weakPassword': 'Пароль закороткий — потрібно щонайменше 8 символів.',
   'auth.rateLimit': 'Забагато листів за короткий час — зачекай кілька хвилин і спробуй ще раз.',
   'auth.samePassword': 'Новий пароль має відрізнятися від старого.',
-
-  'legal.englishOnly': 'Цей документ поки що доступний лише англійською.',
 }
 
 const dictionaries: Record<Lang, Record<Key, string>> = { en, uk }

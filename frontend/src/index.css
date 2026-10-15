@@ -1052,14 +1052,6 @@ body {
   font-weight: 800;
 }
 
-.legal__note {
-  padding: 0.6rem 0.9rem;
-  border-radius: 12px;
-  background: var(--sky);
-  color: var(--sky-text);
-  font-weight: 700;
-}
-
 .legal__updated {
   margin-top: 0;
   color: var(--muted);
