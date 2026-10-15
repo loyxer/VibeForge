@@ -96,7 +96,9 @@ def test_same_query_is_cached(unsplash):
 
 def test_no_key_or_failed_search_leaves_the_page_without_photos(unsplash, monkeypatch):
     monkeypatch.delenv("UNSPLASH_ACCESS_KEY")
-    assert photos.fill(PAGE) == PAGE
+    html = photos.fill(PAGE)
+    assert "src=" not in html and html.count(" hidden") == 2  # empty frames hidden
+    assert unsplash.searches == []
 
     monkeypatch.setenv("UNSPLASH_ACCESS_KEY", "test-key")
     unsplash.status = 403
@@ -115,3 +117,30 @@ def test_at_most_a_few_photos_per_page(unsplash):
     page = "".join(f'<img data-photo="thing {i}">' for i in range(photos.MAX_PHOTOS_PER_PAGE + 3))
     html = photos.fill(page)
     assert html.count("src=") == photos.MAX_PHOTOS_PER_PAGE
+
+
+def test_long_description_falls_back_to_shorter_searches(unsplash, monkeypatch):
+    real_get = unsplash.get
+
+    def picky_get(url, params=None, headers=None, timeout=None):
+        if params and len(params["query"].split()) > 4:
+            unsplash.searches.append((params["query"], params.get("orientation")))
+            return httpx.Response(200, json={"results": []}, headers={"X-Ratelimit-Remaining": "40"},
+                                  request=httpx.Request("GET", url))
+        return real_get(url, params, headers, timeout)
+
+    monkeypatch.setattr(photos.httpx, "get", picky_get)
+    html = photos.fill('<img data-photo="papaya orange formula 1 racing car details">')
+    assert "images.unsplash.com" in html
+    assert [q for q, _ in unsplash.searches] == [
+        "papaya orange formula 1 racing car details",
+        "papaya orange formula 1",
+    ]
+
+
+def test_image_without_a_photo_is_hidden(unsplash):
+    unsplash.results = []
+    html = photos.fill('<img data-photo="nothing matches" alt="x"><div data-photo-bg="nope"></div>')
+    assert '<img data-photo="nothing matches" alt="x" hidden>' in html
+    assert '<div data-photo-bg="nope">' in html  # backgrounds just keep their colors
+    assert photos.fill(html) == html  # and a hidden image isn't searched again

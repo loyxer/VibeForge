@@ -128,8 +128,11 @@ server fills in a real, matching one from Unsplash after you finish:
   the element and give it background-size: cover and a background-position
   in your CSS, but no url() — and keep text on it readable with a dark
   overlay or text shadow.
-Each description is a short, concrete English search phrase (2–6 words)
-for what should be visible in the photo. Use photos where they genuinely
+Each description is a short English search phrase of 2–4 common words,
+main subject first ("red race car", "wedding rings", "cafe interior") —
+long or unusual phrases find nothing. Describe things generically, without
+brand or team names: these are stock photos, they can't show a specific
+company's product. Use photos where they genuinely
 help — places, food, people, products, atmosphere — typically 3–6 per page.
 When editing a page, keep every existing photo (tags that already have a
 src or background-image) exactly as it is unless asked to change it, and

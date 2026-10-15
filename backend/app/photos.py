@@ -61,7 +61,9 @@ def fill(html: str) -> str:
         if key and filled < MAX_PHOTOS_PER_PAGE:
             photo = _pick(key, query, used.get(query, 0), "landscape" if is_bg else None)
         if photo is None:
-            return tag  # no photo: the page's own colors show instead of a broken image
+            # No photo found: hide an <img> rather than show an empty frame
+            # with its alt text; a background just keeps the page's colors.
+            return tag if is_bg else _hidden(tag)
         used[query] = used.get(query, 0) + 1
         filled += 1
         _track_use(key, photo)
@@ -76,14 +78,31 @@ def fill(html: str) -> str:
 def _already_filled(tag: str, is_bg: bool) -> bool:
     if is_bg:
         return "background-image" in tag
-    return re.search(r'\ssrc="[^"]+"', tag) is not None
+    return re.search(r'\ssrc="[^"]+"', tag) is not None or re.search(r"\shidden\b", tag) is not None
+
+
+def _hidden(tag: str) -> str:
+    closing = "/>" if tag.endswith("/>") else ">"
+    return tag[: -len(closing)].rstrip() + " hidden" + closing
 
 
 def _pick(key: str, query: str, nth: int, orientation: Optional[str]) -> Optional[dict]:
     """The nth search result for a query, so a repeated description gets a
-    different photo each time it appears on the page."""
-    photos = _search(key, query, orientation)
-    return photos[nth % len(photos)] if photos else None
+    different photo each time it appears on the page. A long, very specific
+    description often finds nothing, so shorter versions are tried too."""
+    for attempt in _shorter_versions(query):
+        photos = _search(key, attempt, orientation)
+        if photos:
+            return photos[nth % len(photos)]
+    return None
+
+
+def _shorter_versions(query: str) -> list[str]:
+    """The description itself, then its first four words. Not shorter than
+    that: "papaya orange formula 1 car" cut to two words finds fruit, and no
+    photo beats an obviously wrong one."""
+    words = query.split()
+    return [query, " ".join(words[:4])] if len(words) > 4 else [query]
 
 
 def _search(key: str, query: str, orientation: Optional[str]) -> list[dict]:
