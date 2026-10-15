@@ -32,6 +32,8 @@ logger = logging.getLogger("vibeforge")
 
 _API = "https://api.unsplash.com"
 _UTM = "utm_source=vibeforge&utm_medium=referral"
+# Own colours: the page around this block can be dark, so nothing is inherited.
+_LINK = "color:#111;text-decoration:underline"
 MAX_PHOTOS_PER_PAGE = 8  # keeps one site within the 50-requests/hour demo limit
 _CACHE_SECONDS = 24 * 60 * 60
 
@@ -176,15 +178,15 @@ def _with_credits(html: str) -> str:
     if not people:
         return html
     links = ", ".join(
-        f'<a href="{html_lib.escape(url)}?{_UTM}" target="_blank" rel="noopener">'
+        f'<a href="{html_lib.escape(url)}?{_UTM}" target="_blank" rel="noopener" style="{_LINK}">'
         f"{html_lib.escape(name)}</a>"
         for name, url in people.items()
     )
     block = (
-        '\n<div class="vf-photo-credits" style="font:12px/1.5 system-ui,sans-serif;'
-        'text-align:center;padding:16px;opacity:.7">'
+        '\n<div class="vf-photo-credits" style="font:14px/1.6 system-ui,sans-serif;'
+        'text-align:center;padding:14px 16px;background:#fff;color:#222">'
         f'Photos by {links} on <a href="https://unsplash.com/?{_UTM}" target="_blank" '
-        'rel="noopener">Unsplash</a></div>'
+        f'rel="noopener" style="{_LINK}">Unsplash</a></div>'
     )
     if re.search(r"</body>", html, re.I):
         return re.sub(r"</body>", block + "\n</body>", html, count=1, flags=re.I)
