@@ -59,6 +59,9 @@ export default function App() {
       <footer>
         <a href="/privacy">Privacy</a>
         <a href="/terms">Terms</a>
+        <a href="https://unsplash.com/?utm_source=vibeforge&utm_medium=referral" target="_blank" rel="noopener">
+          Photos by Unsplash
+        </a>
       </footer>
     </div>
   )

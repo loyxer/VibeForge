@@ -9,7 +9,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel
 
-from app import projects, publishing, usage, versions
+from app import photos, projects, publishing, usage, versions
 from app.auth import current_user
 from app.generation.base import GenerationRequest, SiteGenerator, finish_html
 from app.generation.gemini import ModelsBusyError, QuotaExceededError
@@ -104,6 +104,9 @@ async def _generation_events(
             yield _line({"type": kind, "text": value})
 
         html = finish_html("".join(parts))
+        if "data-photo" in html:
+            yield _line({"type": "status", "text": "Adding photos…"})
+            html = await run_in_threadpool(photos.fill, html)
         if body.project_id:
             await run_in_threadpool(
                 projects.update_project, body.project_id, user, html, body.prompt

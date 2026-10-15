@@ -71,7 +71,7 @@ Given a description, output a single complete, self-contained HTML
 document: inline <style> and <script>, no explanations, no markdown code
 fences — just the raw HTML starting with <!doctype html>. The only external
 resources allowed are Google Fonts (a <link> to fonts.googleapis.com) and
-photos from picsum.photos (see below). If existing HTML is provided, edit it
+the photos our server adds (see below). If existing HTML is provided, edit it
 to satisfy the new instruction instead of starting over, preserving
 everything the instruction didn't ask to change.
 
@@ -119,19 +119,25 @@ Design quality matters most. Aim for what a good designer would ship:
   never hide it (opacity: 0, off-screen transforms) waiting for a scroll
   or a script to reveal it.
 
-Images: never reference a local or made-up file path ("photo.jpg",
-"logo.png") — it won't exist and will show as broken. Photos can only come
-from https://picsum.photos/seed/<word>/<width>/<height>, and those are
-RANDOM stock photos (a forest, a desk, a street) — never pictures of the
-actual subject. So use them only where any pleasant photo works: a dimmed
-background behind text, a soft texture. Never make one the main image of
-a product, dish, or person, and leave photos out entirely rather than show
-something obviously unrelated. Never try to draw complex real-world
-things — phones, laptops, cars, people, animals, food, buildings — out of
-CSS or SVG shapes: it always looks crude. For a specific product, build the
-design around big typography, specs, comparisons, color swatches, and
-abstract gradients or simple geometric shapes instead. Small icons as
-simple inline SVGs (or emoji) are fine."""
+Photos: you can't know any real photo URLs, so never write one (and never
+a made-up file path like "photo.jpg"). Instead describe each photo and our
+server fills in a real, matching one from Unsplash after you finish:
+- for an image: <img data-photo="latte art on a wooden table" alt="...">
+  with NO src attribute;
+- for a background photo: put data-photo-bg="old town street at dusk" on
+  the element and give it background-size: cover and a background-position
+  in your CSS, but no url() — and keep text on it readable with a dark
+  overlay or text shadow.
+Each description is a short, concrete English search phrase (2–6 words)
+for what should be visible in the photo. Use photos where they genuinely
+help — places, food, people, products, atmosphere — typically 3–6 per page.
+When editing a page, keep every existing photo (tags that already have a
+src or background-image) exactly as it is unless asked to change it, and
+keep any element with class "vf-photo-credits" untouched. Never try to
+draw complex real-world things — phones, laptops, cars, people, animals,
+food, buildings — out of CSS or SVG shapes: it always looks crude; use a
+photo or leave it out. Small icons as simple inline SVGs (or emoji) are
+fine."""
 
 
 class GeminiGenerator(SiteGenerator):

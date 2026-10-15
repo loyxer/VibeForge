@@ -5,7 +5,7 @@
 import type { ReactNode } from 'react'
 
 const CONTACT = 'vibeforge.verify@gmail.com'
-const UPDATED = 'October 13, 2026'
+const UPDATED = 'October 15, 2026'
 
 function Page({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -67,10 +67,18 @@ export function Privacy() {
           <strong>Do not put personal or confidential information in prompts.</strong>
         </li>
         <li><strong>Gmail</strong> sends the sign-in and password-reset codes.</li>
+        <li>
+          <strong>Unsplash</strong> provides the photos: our server sends it only the short photo
+          descriptions the AI writes (like "latte art on a wooden table"), never your account
+          details. Generated and published sites load those photos from Unsplash's servers.
+        </li>
       </ul>
+      <p>We do not sell your data or share it with anyone else.</p>
+
+      <h3>Published sites</h3>
       <p>
-        Generated sites may load images from picsum.photos, which then sees your browser's
-        request. We do not sell your data or share it with anyone else.
+        When you publish a site, anyone with its link can see it, without signing in. Your name
+        and email are not shown on it. Unpublish it or delete the project to take it down.
       </p>
 
       <h3>How long we keep it</h3>
