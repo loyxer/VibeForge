@@ -74,6 +74,7 @@ def fill(html: str) -> str:
         return _with_photo(tag, is_bg, photo, lazy=filled > 1)
 
     html = _TAG.sub(replace, html)
+    html = _hide_empty_frames(html)
     return _with_credits(html)
 
 
@@ -86,6 +87,64 @@ def _already_filled(tag: str, is_bg: bool) -> bool:
 def _hidden(tag: str) -> str:
     closing = "/>" if tag.endswith("/>") else ">"
     return tag[: -len(closing)].rstrip() + " hidden" + closing
+
+
+# A hidden <img> that is the first thing inside a wrapper element.
+_HIDDEN_IMG_IN_WRAPPER = re.compile(
+    r"(<(div|figure|li|a|article)\b[^<>]*>)\s*<img\b[^<>]*\shidden\b[^<>]*>", re.I
+)
+# Things a plain photo frame doesn't contain; if they're inside, the wrapper
+# is a real part of the page (a hero, an about section) and stays.
+_NOT_A_FRAME = re.compile(r"<(section|form|input|textarea|button|video|iframe|h1|nav|header|footer)\b", re.I)
+_MAX_CAPTION_CHARS = 120
+
+
+def _hide_empty_frames(html: str) -> str:
+    """Hide the tile around a photo that wasn't found, caption and all, so
+    the gallery doesn't show a dark empty box. Only wrappers that hold
+    nothing but that one photo and a short caption are hidden: the CSS of
+    the site would otherwise keep the empty box, and hiding anything bigger
+    could take real content with it."""
+    edits = []
+    for m in _HIDDEN_IMG_IN_WRAPPER.finditer(html):
+        open_tag, name = m.group(1), m.group(2).lower()
+        if re.search(r"\shidden\b", open_tag):
+            continue  # already hidden on an earlier pass
+        inner_start = m.end(1)
+        inner_end = _closing_index(html, name, inner_start)
+        if inner_end is None or not _is_just_a_frame(html[inner_start:inner_end]):
+            continue
+        edits.append((m.start(1), m.end(1), open_tag))
+    for start, end, tag in reversed(edits):
+        # Inline display:none: a site's own CSS (display:flex …) beats the
+        # hidden attribute alone.
+        if re.search(r'\sstyle="', tag):
+            tag = re.sub(r'\sstyle="', ' style="display:none;', tag, count=1)
+            tag = tag[:-1].rstrip() + " hidden>"
+        else:
+            tag = tag[:-1].rstrip() + ' hidden style="display:none">'
+        html = html[:start] + tag + html[end:]
+    return html
+
+
+def _closing_index(html: str, name: str, start: int) -> Optional[int]:
+    """Where the element opened just before `start` closes (nesting-aware)."""
+    depth = 1
+    for m in re.finditer(rf"<(/?){name}\b[^<>]*>", html[start:], re.I):
+        if m.group(1):
+            depth -= 1
+            if depth == 0:
+                return start + m.start()
+        elif not m.group(0).endswith("/>"):
+            depth += 1
+    return None
+
+
+def _is_just_a_frame(inner: str) -> bool:
+    if len(re.findall(r"<img\b", inner, re.I)) != 1 or _NOT_A_FRAME.search(inner):
+        return False
+    text = re.sub(r"<[^>]*>", " ", inner)
+    return len(" ".join(text.split())) <= _MAX_CAPTION_CHARS
 
 
 def _pick(key: str, query: str, nth: int, orientation: Optional[str]) -> Optional[dict]:

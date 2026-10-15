@@ -144,3 +144,41 @@ def test_image_without_a_photo_is_hidden(unsplash):
     assert '<img data-photo="nothing matches" alt="x" hidden>' in html
     assert '<div data-photo-bg="nope">' in html  # backgrounds just keep their colors
     assert photos.fill(html) == html  # and a hidden image isn't searched again
+
+
+TILE = (
+    '<div class="gallery-item" onclick="open()">'
+    '<img data-photo="{q}" alt="x">'
+    '<div class="gallery-caption"><span>Місто</span><h3>Лінії</h3></div></div>'
+)
+
+
+def test_tile_around_a_missing_photo_is_hidden_too(unsplash):
+    unsplash.results = []
+    html = photos.fill(TILE.format(q="nothing matches"))
+    assert html.startswith('<div class="gallery-item" onclick="open()" hidden style="display:none">')
+    assert photos.fill(html) == html  # second pass changes nothing
+
+
+def test_tile_keeps_its_own_style_when_hidden(unsplash):
+    unsplash.results = []
+    html = photos.fill(TILE.replace("class=", 'style="color:red" class=').format(q="nothing"))
+    assert 'style="display:none;color:red"' in html and " hidden" in html
+
+
+def test_tile_with_a_found_photo_stays_visible(unsplash):
+    html = photos.fill(TILE.format(q="latte art"))
+    assert html.startswith('<div class="gallery-item" onclick="open()"><img')
+    assert "display:none" not in html
+
+
+def test_big_wrapper_with_a_missing_photo_is_left_alone(unsplash):
+    unsplash.results = []
+    about = (
+        '<div class="about"><img data-photo="nothing" alt="me">'
+        "<p>" + "Довгий текст про мене. " * 20 + "</p></div>"
+    )
+    html = photos.fill(about)
+    assert html.startswith('<div class="about"><img')  # wrapper not hidden
+    two = '<div class="grid"><img data-photo="a"><img data-photo="b"></div>'
+    assert photos.fill(two).startswith('<div class="grid"><img')  # grid of several photos stays
