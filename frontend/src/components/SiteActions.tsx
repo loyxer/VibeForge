@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useT } from '../i18n'
 
 type Props = {
   publishedUrl: string | null
@@ -24,6 +25,7 @@ export default function SiteActions({
   onPublish,
   onUnpublish,
 }: Props) {
+  const t = useT()
   const [copied, setCopied] = useState(false)
 
   async function copy() {
@@ -36,42 +38,41 @@ export default function SiteActions({
   return (
     <div className="site-actions">
       <div className="site-actions__row">
-        <button type="button" onClick={onEditText} title="Change any text yourself — free, no AI">
-          Edit text
+        <button type="button" className="btn" onClick={onEditText} title={t('actions.editTextHint')}>
+          {t('actions.editText')}
         </button>
-        <button type="button" onClick={onToggleHistory} aria-expanded={historyOpen}>
-          {historyOpen ? 'Hide history' : 'History'}
+        <button type="button" className="btn" onClick={onToggleHistory} aria-expanded={historyOpen}>
+          {historyOpen ? t('actions.hideHistory') : t('actions.history')}
         </button>
-        <button type="button" onClick={onDownload}>
-          Download HTML
+        <button type="button" className="btn" onClick={onDownload}>
+          {t('actions.download')}
         </button>
+        <span className="site-actions__spacer" />
         {!publishedUrl && (
-          <button type="button" className="site-actions__primary" onClick={onPublish} disabled={busy}>
-            {busy ? 'Publishing…' : 'Publish'}
+          <button type="button" className="btn btn--blue" onClick={onPublish} disabled={busy}>
+            {busy ? t('actions.publishing') : t('actions.publish')}
+          </button>
+        )}
+        {publishedUrl && stale && (
+          <button type="button" className="btn btn--blue" onClick={onPublish} disabled={busy}>
+            {busy ? t('actions.updating') : t('actions.update')}
           </button>
         )}
       </div>
 
       {publishedUrl && (
         <div className="site-actions__published">
-          <span className="site-actions__label">Live at</span>
+          <span className="site-actions__label">{t('actions.liveAt')}</span>
           <a href={publishedUrl} target="_blank" rel="noopener noreferrer">
             {publishedUrl.replace(/^https?:\/\//, '')}
           </a>
-          <button type="button" onClick={copy}>
-            {copied ? 'Copied!' : 'Copy link'}
+          <button type="button" className="btn btn--small" onClick={copy}>
+            {copied ? t('actions.copied') : t('actions.copy')}
           </button>
-          <button type="button" onClick={onUnpublish} disabled={busy}>
-            Unpublish
+          <button type="button" className="btn btn--small" onClick={onUnpublish} disabled={busy}>
+            {t('actions.unpublish')}
           </button>
-          {stale && (
-            <div className="site-actions__stale">
-              Your latest changes aren't live yet.
-              <button type="button" className="site-actions__primary" onClick={onPublish} disabled={busy}>
-                {busy ? 'Updating…' : 'Update published site'}
-              </button>
-            </div>
-          )}
+          {stale && <p className="site-actions__stale">{t('actions.stale')}</p>}
         </div>
       )}
     </div>

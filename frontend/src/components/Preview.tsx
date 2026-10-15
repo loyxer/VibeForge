@@ -1,4 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
+import { useT } from '../i18n'
 import { requestEditedHtml, withEditor } from '../textEditor'
 
 type Props = {
@@ -23,6 +24,7 @@ const Preview = forwardRef<PreviewHandle, Props>(function Preview(
   { html, building, liveCode, editing },
   ref,
 ) {
+  const t = useT()
   const editFrame = useRef<HTMLIFrameElement>(null)
   useImperativeHandle(ref, () => ({
     getEditedHtml: () =>
@@ -77,7 +79,7 @@ const Preview = forwardRef<PreviewHandle, Props>(function Preview(
           className="preview__frame"
           srcDoc={withEditor(html)}
           sandbox="allow-scripts"
-          title="Edit text"
+          title={t('preview.frameEdit')}
         />
       </div>
     )
@@ -92,17 +94,17 @@ const Preview = forwardRef<PreviewHandle, Props>(function Preview(
             className={`preview__frame${slot === active ? '' : ' preview__frame--hidden'}`}
             srcDoc={slots[slot]!}
             sandbox="allow-scripts allow-forms allow-popups"
-            title={slot === active ? 'Live preview' : 'Next version (loading)'}
+            title={slot === active ? t('preview.frame') : t('preview.frameNext')}
             onLoad={() => handleLoad(slot)}
           />
         ) : null,
       )}
       {!shown && (
         <div className="preview__placeholder">
-          {building ? 'Your site will appear here as it is written…' : 'Your site will appear here'}
+          {building ? t('preview.emptyBuilding') : t('preview.empty')}
         </div>
       )}
-      {building && shown && <div className="preview__badge">Building…</div>}
+      {building && shown && <div className="preview__badge">{t('preview.building')}</div>}
       {building && liveCode && (
         <pre className="preview__code">{liveCode.split('\n').slice(-7).join('\n')}</pre>
       )}

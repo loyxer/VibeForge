@@ -1,5 +1,7 @@
 import { FormEvent, useState } from 'react'
 import { supabase } from '../supabase'
+import { Key, useT } from '../i18n'
+import Mascot from './Mascot'
 
 // signin  — email + password
 // signup  — email + new password, then a code arrives by email
@@ -8,7 +10,19 @@ import { supabase } from '../supabase'
 // reset   — enter the reset code + a new password
 type Mode = 'signin' | 'signup' | 'confirm' | 'forgot' | 'reset'
 
+// Supabase's error codes we can explain in the person's language; any
+// other error is shown as Supabase words it.
+const AUTH_ERRORS: Record<string, Key> = {
+  invalid_credentials: 'auth.invalidCredentials',
+  otp_expired: 'auth.badCode',
+  weak_password: 'auth.weakPassword',
+  over_email_send_rate_limit: 'auth.rateLimit',
+  over_request_rate_limit: 'auth.rateLimit',
+  same_password: 'auth.samePassword',
+}
+
 export default function SignIn() {
+  const t = useT()
   const auth = supabase!.auth
   const [mode, setMode] = useState<Mode>('signin')
   const [email, setEmail] = useState('')
@@ -36,7 +50,8 @@ export default function SignIn() {
     try {
       await step()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Something went wrong — try again.')
+      const known = e && typeof e === 'object' && 'code' in e ? AUTH_ERRORS[String(e.code)] : undefined
+      setError(known ? t(known) : e instanceof Error ? e.message : t('error.generic'))
     } finally {
       setBusy(false)
     }
@@ -48,7 +63,7 @@ export default function SignIn() {
       if (error?.code === 'email_not_confirmed') {
         const resent = await auth.resend({ type: 'signup', email })
         if (resent.error) throw resent.error
-        go('confirm', `Your email isn't confirmed yet — we sent a new code to ${email}.`)
+        go('confirm', t('auth.notConfirmed', { email }))
         return
       }
       if (error) throw error
@@ -61,9 +76,9 @@ export default function SignIn() {
       // Supabase doesn't reveal whether an address is taken; an existing
       // account comes back as a user with no identities.
       if (data.user?.identities?.length === 0) {
-        throw new Error('This email is already registered — sign in instead.')
+        throw new Error(t('auth.alreadyRegistered'))
       }
-      if (!data.session) go('confirm', `We sent a code to ${email}. It may take a minute.`)
+      if (!data.session) go('confirm', t('auth.codeSent', { email }))
     })
 
   const confirm = (e: FormEvent) =>
@@ -76,14 +91,14 @@ export default function SignIn() {
     run(null, async () => {
       const { error } = await auth.resend({ type: 'signup', email })
       if (error) throw error
-      setNotice(`New code sent to ${email}.`)
+      setNotice(t('auth.codeResent', { email }))
     })
 
   const sendResetCode = (e: FormEvent) =>
     run(e, async () => {
       const { error } = await auth.resetPasswordForEmail(email)
       if (error) throw error
-      go('reset', `If ${email} has an account, we sent it a code.`)
+      go('reset', t('auth.resetSent', { email }))
     })
 
   const resetPassword = (e: FormEvent) =>
@@ -106,7 +121,8 @@ export default function SignIn() {
   const emailField = (
     <input
       type="email"
-      placeholder="Email"
+      placeholder={t('auth.email')}
+      aria-label={t('auth.email')}
       autoComplete="email"
       required
       value={email}
@@ -116,7 +132,8 @@ export default function SignIn() {
   const codeField = (
     <input
       type="text"
-      placeholder="Code from the email"
+      placeholder={t('auth.code')}
+      aria-label={t('auth.code')}
       inputMode="numeric"
       autoComplete="one-time-code"
       required
@@ -124,10 +141,11 @@ export default function SignIn() {
       onChange={(e) => setCode(e.target.value)}
     />
   )
-  const passwordField = (autoComplete: string, placeholder = 'Password') => (
+  const passwordField = (autoComplete: string, placeholder: string) => (
     <input
       type="password"
       placeholder={placeholder}
+      aria-label={placeholder}
       autoComplete={autoComplete}
       minLength={8}
       required
@@ -135,78 +153,85 @@ export default function SignIn() {
       onChange={(e) => setPassword(e.target.value)}
     />
   )
+  const submit = (label: Key) => (
+    <button type="submit" className="btn btn--orange btn--big" disabled={busy}>
+      {t(label)}
+    </button>
+  )
 
   return (
-    <section className="sign-in">
+    <section className="sign-in card">
+      <Mascot size={52} />
+
       {mode === 'signin' && (
         <>
-          <h2>Sign in to start building</h2>
-          <p>Your sites are saved to your account, so they're here next time you come back.</p>
+          <h2>{t('signin.title')}</h2>
+          <p>{t('signin.intro')}</p>
           <form onSubmit={signIn}>
             {emailField}
-            {passwordField('current-password')}
-            <button type="submit" disabled={busy}>Sign in</button>
+            {passwordField('current-password', t('auth.password'))}
+            {submit('signin.submit')}
           </form>
           <div className="sign-in__links">
-            <button type="button" onClick={() => go('signup')}>Create an account</button>
-            <button type="button" onClick={() => go('forgot')}>Forgot password?</button>
+            <button type="button" onClick={() => go('signup')}>{t('signin.toSignup')}</button>
+            <button type="button" onClick={() => go('forgot')}>{t('signin.toForgot')}</button>
           </div>
         </>
       )}
 
       {mode === 'signup' && (
         <>
-          <h2>Create your account</h2>
-          <p>We'll email you a code to confirm the address.</p>
+          <h2>{t('signup.title')}</h2>
+          <p>{t('signup.intro')}</p>
           <form onSubmit={signUp}>
             {emailField}
-            {passwordField('new-password', 'Password (at least 8 characters)')}
-            <button type="submit" disabled={busy}>Create account</button>
+            {passwordField('new-password', t('auth.newPassword'))}
+            {submit('signup.submit')}
           </form>
           <div className="sign-in__links">
-            <button type="button" onClick={() => go('signin')}>I already have an account</button>
+            <button type="button" onClick={() => go('signin')}>{t('signup.toSignin')}</button>
           </div>
         </>
       )}
 
       {mode === 'confirm' && (
         <>
-          <h2>Check your email</h2>
+          <h2>{t('confirm.title')}</h2>
           <form onSubmit={confirm}>
             {codeField}
-            <button type="submit" disabled={busy}>Confirm</button>
+            {submit('confirm.submit')}
           </form>
           <div className="sign-in__links">
-            <button type="button" onClick={resendSignupCode} disabled={busy}>Send a new code</button>
-            <button type="button" onClick={() => go('signin')}>Back to sign in</button>
+            <button type="button" onClick={resendSignupCode} disabled={busy}>{t('confirm.resend')}</button>
+            <button type="button" onClick={() => go('signin')}>{t('auth.back')}</button>
           </div>
         </>
       )}
 
       {mode === 'forgot' && (
         <>
-          <h2>Reset your password</h2>
-          <p>We'll email you a code to set a new one.</p>
+          <h2>{t('forgot.title')}</h2>
+          <p>{t('forgot.intro')}</p>
           <form onSubmit={sendResetCode}>
             {emailField}
-            <button type="submit" disabled={busy}>Send code</button>
+            {submit('forgot.submit')}
           </form>
           <div className="sign-in__links">
-            <button type="button" onClick={() => go('signin')}>Back to sign in</button>
+            <button type="button" onClick={() => go('signin')}>{t('auth.back')}</button>
           </div>
         </>
       )}
 
       {mode === 'reset' && (
         <>
-          <h2>Set a new password</h2>
+          <h2>{t('reset.title')}</h2>
           <form onSubmit={resetPassword}>
             {codeField}
-            {passwordField('new-password', 'New password (at least 8 characters)')}
-            <button type="submit" disabled={busy}>Save and sign in</button>
+            {passwordField('new-password', t('auth.resetPassword'))}
+            {submit('reset.submit')}
           </form>
           <div className="sign-in__links">
-            <button type="button" onClick={() => go('signin')}>Back to sign in</button>
+            <button type="button" onClick={() => go('signin')}>{t('auth.back')}</button>
           </div>
         </>
       )}
@@ -216,9 +241,9 @@ export default function SignIn() {
 
       {(mode === 'signin' || mode === 'signup') && (
         <>
-          <div className="sign-in__divider">or</div>
-          <button type="button" className="sign-in__google" onClick={handleGoogle}>
-            Continue with Google
+          <div className="sign-in__divider">{t('auth.or')}</div>
+          <button type="button" className="btn btn--big sign-in__google" onClick={handleGoogle}>
+            {t('auth.google')}
           </button>
         </>
       )}

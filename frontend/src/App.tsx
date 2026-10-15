@@ -1,14 +1,16 @@
-import { useEffect, useRef, useState } from 'react'
+import { ReactNode, useEffect, useRef, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import Chat, { ChatMessage } from './components/Chat'
+import Chat, { ChatMessage, Progress } from './components/Chat'
 import Preview, { PreviewHandle } from './components/Preview'
 import Gallery, { GallerySelection } from './components/Gallery'
 import SignIn from './components/SignIn'
 import SiteActions from './components/SiteActions'
 import VersionHistory, { VersionSummary } from './components/VersionHistory'
 import { Privacy, Terms } from './components/Legal'
+import TopBar from './components/TopBar'
 import { apiFetch, readEvents, Usage } from './api'
 import { supabase } from './supabase'
+import { useT } from './i18n'
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null)
@@ -27,52 +29,54 @@ export default function App() {
 
   const path = window.location.pathname
 
-  return (
-    <div className="app">
-      <header>
-        <div>
-          <h1>VibeForge</h1>
-          <p>Describe a site in plain words — watch it build, live.</p>
-        </div>
-        {session && (
-          <div className="account">
-            <span className="account__email">{session.user.email}</span>
-            <button type="button" onClick={() => supabase?.auth.signOut()}>
-              Sign out
-            </button>
-          </div>
-        )}
-      </header>
-
-      {/* No router: the only other pages are the two static legal ones. */}
-      {path === '/privacy' ? (
-        <Privacy />
-      ) : path === '/terms' ? (
-        <Terms />
-      ) : !authReady ? null : supabase && !session ? (
+  // No router: the only other pages are the two static legal ones.
+  if (path === '/privacy' || path === '/terms') {
+    return <Shell session={session}>{path === '/privacy' ? <Privacy /> : <Terms />}</Shell>
+  }
+  if (!authReady) return <Shell session={null} />
+  if (supabase && !session) {
+    return (
+      <Shell session={null}>
         <SignIn />
-      ) : (
-        // Keyed by user so signing in as someone else starts from a clean slate.
-        <Workspace key={session?.user.id ?? 'local'} />
-      )}
+      </Shell>
+    )
+  }
+  // Keyed by user so signing in as someone else starts from a clean slate.
+  return <Workspace key={session?.user.id ?? 'local'} session={session} />
+}
 
-      <footer>
-        <a href="/privacy">Privacy</a>
-        <a href="/terms">Terms</a>
+type ShellProps = {
+  session: Session | null
+  workspace?: boolean
+  usage?: Usage | null
+  onOpenGallery?: () => void
+  children?: ReactNode
+}
+
+function Shell({ session, workspace, usage, onOpenGallery, children }: ShellProps) {
+  const t = useT()
+  return (
+    <div className={workspace ? 'app app--workspace' : 'app'}>
+      <TopBar session={session} usage={usage ?? null} onOpenGallery={onOpenGallery} />
+      {children}
+      <footer className="footer">
+        <a href="/privacy">{t('footer.privacy')}</a>
+        <a href="/terms">{t('footer.terms')}</a>
         <a href="https://unsplash.com/?utm_source=vibeforge&utm_medium=referral" target="_blank" rel="noopener">
-          Photos by Unsplash
+          {t('footer.unsplash')}
         </a>
       </footer>
     </div>
   )
 }
 
-function Workspace() {
+function Workspace({ session }: { session: Session | null }) {
+  const t = useT()
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [html, setHtml] = useState<string | null>(null)
   const [projectId, setProjectId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const [progress, setProgress] = useState<string | null>(null)
+  const [progress, setProgress] = useState<Progress | null>(null)
   const [liveCode, setLiveCode] = useState('')
   const [style, setStyle] = useState<string | null>(null)
   const [publishedUrl, setPublishedUrl] = useState<string | null>(null)
@@ -86,7 +90,7 @@ function Workspace() {
   const [editing, setEditing] = useState(false)
   const [savingEdit, setSavingEdit] = useState(false)
   const preview = useRef<PreviewHandle>(null)
-  const [galleryVersion, setGalleryVersion] = useState(0)
+  const [galleryOpen, setGalleryOpen] = useState(false)
   const [usage, setUsage] = useState<Usage | null>(null)
 
   useEffect(() => {
@@ -96,11 +100,19 @@ function Workspace() {
       .catch(() => setUsage(null))
   }, [])
 
+  // Errors we raise ourselves carry a dictionary key; the server's come as
+  // English text. Chat shows either in the current language.
+  const fail = (err: unknown, fallback: 'error.generation' | 'error.save' | 'error.generic') =>
+    setMessages((m) => [
+      ...m,
+      { role: 'assistant', error: err instanceof Error && err.message ? err.message : fallback },
+    ])
+
   async function handleSend(prompt: string) {
     setViewing(null) // edits always build on the latest version
     setMessages((m) => [...m, { role: 'user', text: prompt }])
     setLoading(true)
-    setProgress('Starting…')
+    setProgress({ text: 'progress.starting' })
 
     try {
       const post = (id: string | null) =>
@@ -120,7 +132,7 @@ function Workspace() {
       }
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
-        throw new Error(data.detail ?? `Server error: ${res.status}`)
+        throw new Error(data.detail ?? t('error.server', { status: res.status }))
       }
 
       // The site arrives in pieces: repaint the preview every so often with
@@ -131,14 +143,14 @@ function Workspace() {
       let finished = false
       for await (const event of readEvents(res)) {
         if (event.type === 'status') {
-          setProgress(event.text)
+          setProgress({ text: event.text })
         } else if (event.type === 'reset') {
           // The model dropped out halfway; another one starts from scratch.
           written = ''
           setLiveCode('')
         } else if (event.type === 'text') {
           written += event.text
-          setProgress(`Writing your site… ${Math.round(written.length / 1024)} KB`)
+          setProgress({ text: 'progress.writing', params: { kb: Math.round(written.length / 1024) } })
           if (Date.now() - lastCode > 150) {
             lastCode = Date.now()
             setLiveCode(written.slice(-1500))
@@ -166,14 +178,12 @@ function Workspace() {
           setUsage((u) => (u ? { ...u, remaining_today: event.remaining_today } : u))
         }
       }
-      if (!finished) throw new Error('The connection was interrupted — please try again.')
+      if (!finished) throw new Error('error.interrupted')
 
-      setMessages((m) => [...m, { role: 'assistant', text: 'Done — updated the preview.' }])
-      setGalleryVersion((v) => v + 1)
+      setMessages((m) => [...m, { role: 'assistant', key: 'reply.done' }])
       setHistoryVersion((v) => v + 1)
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Generation failed'
-      setMessages((m) => [...m, { role: 'assistant', text: `Error: ${message}` }])
+      fail(err, 'error.generation')
     } finally {
       setLoading(false)
       setProgress(null)
@@ -182,16 +192,18 @@ function Workspace() {
   }
 
   function handleGallerySelect(selection: GallerySelection) {
+    setGalleryOpen(false)
     setProjectId(selection.projectId)
     setHtml(selection.html)
     setPublishedUrl(selection.publishedUrl)
     setPublishedStale(false)
     setViewing(null)
     setEditing(false)
+    setHistoryOpen(false)
     setMessages(
       selection.history.flatMap((prompt) => [
         { role: 'user' as const, text: prompt },
-        { role: 'assistant' as const, text: 'Done — updated the preview.' },
+        { role: 'assistant' as const, key: 'reply.doneEarlier' as const },
       ]),
     )
   }
@@ -221,7 +233,7 @@ function Workspace() {
       method: 'POST',
     })
     if (!res.ok) {
-      setMessages((m) => [...m, { role: 'assistant', text: 'Error: could not restore that version.' }])
+      setMessages((m) => [...m, { role: 'assistant', error: 'error.restore' }])
       return
     }
     const data = await res.json()
@@ -229,11 +241,10 @@ function Workspace() {
     setMessages((m) => [
       ...m,
       { role: 'user', text: data.history[data.history.length - 1] },
-      { role: 'assistant', text: 'Done — that version is back.' },
+      { role: 'assistant', key: 'reply.restored' },
     ])
     setViewing(null)
     setHistoryVersion((v) => v + 1)
-    setGalleryVersion((v) => v + 1)
     setPublishedStale(publishedUrl !== null)
   }
 
@@ -248,20 +259,18 @@ function Workspace() {
         body: JSON.stringify({ html: edited }),
       })
       const data = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(data.detail ?? `Server error: ${res.status}`)
+      if (!res.ok) throw new Error(data.detail ?? t('error.server', { status: res.status }))
       setHtml(data.html)
       setMessages((m) => [
         ...m,
         { role: 'user', text: data.history[data.history.length - 1] },
-        { role: 'assistant', text: 'Saved your changes.' },
+        { role: 'assistant', key: 'reply.saved' },
       ])
       setEditing(false)
       setHistoryVersion((v) => v + 1)
-      setGalleryVersion((v) => v + 1)
       setPublishedStale(publishedUrl !== null)
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Could not save'
-      setMessages((m) => [...m, { role: 'assistant', text: `Error: ${message}` }])
+      fail(err, 'error.save')
     } finally {
       setSavingEdit(false)
     }
@@ -273,12 +282,11 @@ function Workspace() {
     try {
       const res = await apiFetch(`/api/projects/${projectId}/publish`, { method })
       const data = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(data.detail ?? `Server error: ${res.status}`)
+      if (!res.ok) throw new Error(data.detail ?? t('error.server', { status: res.status }))
       setPublishedUrl(data.published_url)
       setPublishedStale(false)
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Something went wrong'
-      setMessages((m) => [...m, { role: 'assistant', text: `Error: ${message}` }])
+      fail(err, 'error.generic')
     } finally {
       setPublishBusy(false)
     }
@@ -301,10 +309,15 @@ function Workspace() {
     URL.revokeObjectURL(url)
   }
 
+  // Until projects can be renamed, a site is called by its first request.
+  const firstPrompt = messages.find((m) => m.role === 'user')
+  const title = projectId && firstPrompt && 'text' in firstPrompt ? firstPrompt.text : t('chat.newSite')
+
   return (
-    <main>
-      <div className="sidebar">
+    <Shell session={session} workspace usage={usage} onOpenGallery={() => setGalleryOpen(true)}>
+      <main className="workspace">
         <Chat
+          title={title}
           messages={messages}
           loading={loading}
           progress={progress}
@@ -316,71 +329,88 @@ function Workspace() {
           onNewSite={handleNewSite}
           onSend={handleSend}
         />
+
+        <div className="stage">
+          {viewing && (
+            <div className="notice-bar">
+              <span>
+                {t('viewing.label', { number: viewing.number })}
+                {viewing.prompt && <> · “{t.server(viewing.prompt)}”</>}
+              </span>
+              <button type="button" className="btn btn--primary" onClick={handleRestore}>
+                {t('viewing.restore')}
+              </button>
+              <button type="button" className="btn" onClick={() => setViewing(null)}>
+                {t('viewing.back')}
+              </button>
+            </div>
+          )}
+          {editing && (
+            <div className="notice-bar">
+              <span>{t('editing.hint')}</span>
+              <button type="button" className="btn btn--primary" onClick={handleSaveEdit} disabled={savingEdit}>
+                {savingEdit ? t('editing.saving') : t('editing.save')}
+              </button>
+              <button type="button" className="btn" onClick={() => setEditing(false)} disabled={savingEdit}>
+                {t('editing.cancel')}
+              </button>
+            </div>
+          )}
+
+          <div className="preview-card card">
+            <div className="preview-card__bar">
+              <span>{t('preview.title')}</span>
+              {publishedUrl && (
+                <span className={`preview-card__badge${publishedStale ? ' preview-card__badge--stale' : ''}`}>
+                  {publishedStale ? t('preview.unpublishedChanges') : t('preview.published')}
+                </span>
+              )}
+            </div>
+            <Preview
+              ref={preview}
+              html={viewing?.html ?? html}
+              building={loading}
+              liveCode={liveCode}
+              editing={editing}
+            />
+          </div>
+
+          {html && !loading && !editing && projectId && (
+            <SiteActions
+              publishedUrl={publishedUrl}
+              stale={publishedStale}
+              busy={publishBusy}
+              historyOpen={historyOpen}
+              onToggleHistory={() => setHistoryOpen((open) => !open)}
+              onEditText={() => {
+                setViewing(null) // edits always apply to the current version
+                setEditing(true)
+              }}
+              onDownload={handleDownload}
+              onPublish={() => changePublished('POST')}
+              onUnpublish={() => changePublished('DELETE')}
+            />
+          )}
+          {historyOpen && projectId && !loading && !editing && (
+            <VersionHistory
+              projectId={projectId}
+              refreshKey={historyVersion}
+              viewingId={viewing?.id ?? null}
+              onView={handleViewVersion}
+            />
+          )}
+        </div>
+      </main>
+
+      {galleryOpen && (
         <Gallery
-          refreshKey={galleryVersion}
+          currentId={projectId}
           onSelect={handleGallerySelect}
           onDelete={handleGalleryDelete}
+          onClose={() => setGalleryOpen(false)}
         />
-      </div>
-      <div>
-        {viewing && (
-          <div className="viewing">
-            <span>
-              Viewing version {viewing.number}
-              {viewing.prompt && <> · “{viewing.prompt}”</>}
-            </span>
-            <button type="button" className="viewing__restore" onClick={handleRestore}>
-              Restore this version
-            </button>
-            <button type="button" onClick={() => setViewing(null)}>
-              Back to latest
-            </button>
-          </div>
-        )}
-        {editing && (
-          <div className="viewing">
-            <span>Click any text on the page to change it. Buttons and menus are paused while you edit.</span>
-            <button type="button" className="viewing__restore" onClick={handleSaveEdit} disabled={savingEdit}>
-              {savingEdit ? 'Saving…' : 'Save changes'}
-            </button>
-            <button type="button" onClick={() => setEditing(false)} disabled={savingEdit}>
-              Cancel
-            </button>
-          </div>
-        )}
-        <Preview
-          ref={preview}
-          html={viewing?.html ?? html}
-          building={loading}
-          liveCode={liveCode}
-          editing={editing}
-        />
-        {html && !loading && !editing && projectId && (
-          <SiteActions
-            publishedUrl={publishedUrl}
-            stale={publishedStale}
-            busy={publishBusy}
-            historyOpen={historyOpen}
-            onToggleHistory={() => setHistoryOpen((open) => !open)}
-            onEditText={() => {
-              setViewing(null) // edits always apply to the current version
-              setEditing(true)
-            }}
-            onDownload={handleDownload}
-            onPublish={() => changePublished('POST')}
-            onUnpublish={() => changePublished('DELETE')}
-          />
-        )}
-        {historyOpen && projectId && !loading && !editing && (
-          <VersionHistory
-            projectId={projectId}
-            refreshKey={historyVersion}
-            viewingId={viewing?.id ?? null}
-            onView={handleViewVersion}
-          />
-        )}
-      </div>
-    </main>
+      )}
+    </Shell>
   )
 }
 

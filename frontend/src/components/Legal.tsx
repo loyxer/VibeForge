@@ -3,14 +3,21 @@
 // service or kind of data is added.
 
 import type { ReactNode } from 'react'
+import { useT } from '../i18n'
 
 const CONTACT = 'vibeforge.verify@gmail.com'
 const UPDATED = 'October 15, 2026'
 
 function Page({ title, children }: { title: string; children: ReactNode }) {
+  const t = useT()
   return (
-    <article className="legal">
+    <article className="legal card" lang="en">
       <a href="/">← Back to VibeForge</a>
+      {t('legal.englishOnly') && (
+        <p className="legal__note" lang="uk">
+          {t('legal.englishOnly')}
+        </p>
+      )}
       <h2>{title}</h2>
       <p className="legal__updated">Last updated: {UPDATED}</p>
       {children}
