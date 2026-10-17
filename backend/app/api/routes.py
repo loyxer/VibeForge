@@ -147,7 +147,7 @@ def _line(event: dict) -> str:
 # so they don't freeze other requests.
 @router.get("/usage")
 def get_usage(user: str = Depends(current_user)):
-    return {"limit": usage.DAILY_LIMIT or None, "remaining_today": usage.remaining_today(user)}
+    return {"limit": usage.limit_for(user), "remaining_today": usage.remaining_today(user)}
 
 
 @router.get("/projects")

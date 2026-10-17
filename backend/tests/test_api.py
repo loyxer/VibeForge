@@ -204,6 +204,15 @@ def test_limit_is_per_user(monkeypatch):
     assert usage.remaining_today("bob") == 1
 
 
+def test_unlimited_accounts_have_no_limit(client, monkeypatch):
+    monkeypatch.setattr(usage, "DAILY_LIMIT", 1)
+    monkeypatch.setattr(usage, "UNLIMITED", {"local"})  # the user in local mode
+    for prompt in "abc":
+        assert generate(client, prompt)["type"] == "done"
+    assert client.get("/api/usage").json() == {"limit": None, "remaining_today": None}
+    assert usage.remaining_today("someone-else") == 1  # others keep the limit
+
+
 def test_zero_means_unlimited(client, monkeypatch):
     monkeypatch.setattr(usage, "DAILY_LIMIT", 0)
     for prompt in "abc":

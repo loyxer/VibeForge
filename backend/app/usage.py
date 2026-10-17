@@ -3,7 +3,8 @@
 Every successful generation is recorded (who, when, which model). Before
 generating we count the user's records since midnight Kyiv time; once that
 reaches DAILY_GENERATION_LIMIT (default 5 with accounts on, 0 = unlimited)
-they have to wait for tomorrow. Failed generations are never recorded, so they don't count.
+they have to wait for tomorrow — except accounts in UNLIMITED_USER_IDS.
+Failed generations are never recorded, so they don't count.
 
 Same two backends as projects.py: a Supabase table (see
 backend/supabase/schema.sql) or a local JSON file.
@@ -24,6 +25,9 @@ DAILY_LIMIT = int(
     os.getenv("DAILY_GENERATION_LIMIT", "5" if supabase.config() else "0")
 )
 _DAY_TZ = ZoneInfo("Europe/Kyiv")
+# Accounts with no daily limit (the owner's own), as Supabase user ids,
+# comma-separated in UNLIMITED_USER_IDS. Their generations are still recorded.
+UNLIMITED = {u.strip() for u in os.getenv("UNLIMITED_USER_IDS", "").split(",") if u.strip()}
 
 
 def start_of_today() -> datetime:
@@ -31,11 +35,19 @@ def start_of_today() -> datetime:
     return now.replace(hour=0, minute=0, second=0, microsecond=0)
 
 
+def limit_for(owner: str) -> int | None:
+    """The user's daily limit; None = no limit."""
+    if DAILY_LIMIT <= 0 or owner in UNLIMITED:
+        return None
+    return DAILY_LIMIT
+
+
 def remaining_today(owner: str) -> int | None:
     """How many generations the user has left today; None = no limit."""
-    if DAILY_LIMIT <= 0:
+    limit = limit_for(owner)
+    if limit is None:
         return None
-    return max(DAILY_LIMIT - _count_since(owner, start_of_today()), 0)
+    return max(limit - _count_since(owner, start_of_today()), 0)
 
 
 def record(owner: str, model: str) -> None:
