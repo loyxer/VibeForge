@@ -199,6 +199,17 @@ def test_style_goes_into_the_prompt():
     assert client.contents.rstrip().endswith("Instruction: a bakery")
 
 
+def test_todays_date_goes_into_the_prompt(monkeypatch):
+    from datetime import date
+
+    from app.generation import base
+
+    monkeypatch.setattr(base, "today", lambda: date(2026, 10, 18))
+    gen, client = make({"a": ["<html>a</html>"]})
+    generate(gen)
+    assert "Today is 2026-10-18: use 2026 as the current year" in client.contents
+
+
 def test_strips_markdown_fence():
     gen, _ = make({"a": ["```html\n<html>a</html>\n```"]})
     assert generate(gen).html == "<html>a</html>"

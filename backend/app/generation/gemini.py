@@ -20,6 +20,7 @@ from collections.abc import AsyncIterator
 
 from google import genai
 
+from . import base
 from .base import Event, GenerationRequest, SiteGenerator
 
 logger = logging.getLogger("vibeforge")
@@ -113,11 +114,27 @@ Design quality matters most. Aim for what a good designer would ship:
   consistently, with enough contrast to read easily.
 - Layout: generous whitespace, a consistent spacing rhythm, aligned grids,
   varied section layouts (not the same card grid repeated), fully
-  responsive down to phone widths.
+  responsive down to phone widths (see Phones below).
 - Polish: hover states, smooth transitions, at most one tasteful
   animation. All content must be visible as soon as the page loads —
   never hide it (opacity: 0, off-screen transforms) waiting for a scroll
   or a script to reveal it.
+
+Phones: many visitors are on a phone, so before you finish, check the page
+at 375px wide:
+- Nothing may be wider than the screen. No fixed px widths or min-widths on
+  containers, text or rows of buttons; grids collapse to one column (e.g.
+  repeat(auto-fit, minmax(min(100%, 260px), 1fr))); rows of buttons, chips
+  or tabs wrap (flex-wrap: wrap); headlines shrink with clamp(); long
+  words wrap (overflow-wrap: anywhere).
+- If the navigation links are hidden on small screens, the header must have
+  a menu button (☰) that opens and closes them with a few lines of JS.
+  Never hide the menu with nothing to replace it.
+
+JavaScript must never crash: one error stops every script on the page. Run
+setup code after the page has loaded, check that an element exists before
+using it, and never read event.target in a function that is also called
+without an event (e.g. to set the initial state).
 
 Photos: you can't know any real photo URLs, so never write one (and never
 a made-up file path like "photo.jpg"). Instead describe each photo and our
@@ -136,7 +153,8 @@ company's product. Use photos where they genuinely
 help — places, food, people, products, atmosphere — typically 3–6 per page.
 When editing a page, keep every existing photo (tags that already have a
 src or background-image) exactly as it is unless asked to change it, and
-keep any element with class "vf-photo-credits" untouched. Never try to
+keep any element with class "vf-photo-credits" and the <style id="vf-safety">
+untouched. Never try to
 draw complex real-world things — phones, laptops, cars, people, animals,
 food, buildings — out of CSS or SVG shapes: it always looks crude; use a
 photo or leave it out. Small icons as simple inline SVGs (or emoji) are
@@ -166,7 +184,12 @@ class GeminiGenerator(SiteGenerator):
         self._lock = threading.Lock()
 
     async def stream(self, request: GenerationRequest) -> AsyncIterator[Event]:
-        parts = [_SYSTEM_PROMPT]
+        today = base.today()
+        parts = [
+            _SYSTEM_PROMPT,
+            f"Today is {today.isoformat()}: use {today.year} as the current year "
+            "(copyright notices, \"this season\", upcoming dates).",
+        ]
         if request.style:
             parts.append(f"Visual style for this site: {request.style}")
         if request.previous_html:

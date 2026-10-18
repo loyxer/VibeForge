@@ -14,7 +14,9 @@ import re
 from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
+from datetime import date, datetime
 from typing import Literal, Optional
+from zoneinfo import ZoneInfo
 
 Event = tuple[Literal["status", "model", "text", "reset"], str]
 
@@ -50,12 +52,49 @@ class SiteGenerator(ABC):
         return GenerationResult(html=finish_html("".join(parts)), model=model)
 
 
+def today() -> date:
+    return datetime.now(ZoneInfo("Europe/Kyiv")).date()
+
+
 def finish_html(text: str) -> str:
     """Turn the model's complete output into the HTML we store."""
     html = extract_html(text)
     if not html:
         raise RuntimeError("The AI returned an empty response — try rephrasing the request.")
+    return with_safety_css(current_copyright_year(html))
+
+
+# A safety net for what the AI most often gets wrong on phones: one element
+# wider than the screen makes the whole page slide sideways, and a big image
+# without a width limit does the same.
+SAFETY_CSS = (
+    '<style id="vf-safety">html,body{overflow-x:clip}'
+    "img,video,iframe{max-width:100%}</style>"
+)
+
+
+def with_safety_css(html: str) -> str:
+    if 'id="vf-safety"' in html:
+        return html
+    for pattern in (r"</head>", r"<body\b[^>]*>"):
+        m = re.search(pattern, html, re.I)
+        if m:
+            at = m.start() if pattern == r"</head>" else m.end()
+            return html[:at] + SAFETY_CSS + html[at:]
     return html
+
+
+# "© 2023 Coffee Co." — the AI doesn't know what year it is.
+_COPYRIGHT_YEAR = re.compile(r"((?:©|&copy;|Copyright)\s*)(20\d\d)\b(?!\s*[–—-]\s*\d)", re.I)
+
+
+def current_copyright_year(html: str) -> str:
+    year = today().year
+
+    def fix(m: re.Match) -> str:
+        return m.group(1) + str(year) if int(m.group(2)) < year else m.group(0)
+
+    return _COPYRIGHT_YEAR.sub(fix, html)
 
 
 def extract_html(text: str) -> str:

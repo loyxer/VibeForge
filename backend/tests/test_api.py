@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 
 from app import projects, publishing, usage, versions
 from app.api import routes
+from app.generation.base import finish_html
 from app.generation.mock import MockGenerator
 from app.main import app
 
@@ -111,7 +112,8 @@ def test_streams_the_site_in_pieces(client):
     assert events[0] == {"type": "model", "text": "mock"}
     pieces = [e["text"] for e in events if e["type"] == "text"]
     assert len(pieces) > 1
-    assert "".join(pieces).strip() == events[-1]["html"]
+    # The stored page is what was streamed plus our finishing touches.
+    assert finish_html("".join(pieces)) == events[-1]["html"]
 
 
 def test_reset_discards_the_half_written_site(client, monkeypatch):
