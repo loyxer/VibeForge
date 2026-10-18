@@ -1,6 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { useT } from '../i18n'
-import { EditorCommand, requestEditedHtml, Selection, withEditor } from '../textEditor'
+import { EditorCommand, requestEditedHtml, Selection, SiteLanguages, withEditor } from '../textEditor'
 
 type Props = {
   html: string | null
@@ -11,6 +11,8 @@ type Props = {
   editing: boolean
   // While editing: the element just clicked (null = none yet).
   onSelect: (selection: Selection | null) => void
+  // While editing: the languages of a two-language site, and the one shown.
+  onLanguages: (languages: SiteLanguages | null) => void
   // Shown at full width, or at a phone's width to check the mobile layout.
   device: Device
 }
@@ -29,7 +31,7 @@ export type PreviewHandle = {
 // visible frame instead would flash white on every update while the site
 // streams in.
 const Preview = forwardRef<PreviewHandle, Props>(function Preview(
-  { html, building, liveCode, editing, device, onSelect },
+  { html, building, liveCode, editing, device, onSelect, onLanguages },
   ref,
 ) {
   const t = useT()
@@ -47,12 +49,15 @@ const Preview = forwardRef<PreviewHandle, Props>(function Preview(
   useEffect(() => {
     if (!editing) return
     function onMessage(event: MessageEvent) {
-      if (event.source !== editFrame.current?.contentWindow || event.data?.type !== 'vf-select') return
-      onSelect(event.data.info)
+      if (event.source !== editFrame.current?.contentWindow) return
+      if (event.data?.type === 'vf-select') onSelect(event.data.info)
+      if (event.data?.type === 'vf-langs') onLanguages(event.data.languages)
     }
     window.addEventListener('message', onMessage)
+    // The page may have reported its languages before we were listening.
+    editFrame.current?.contentWindow?.postMessage({ type: 'vf-cmd', cmd: 'ping' }, '*')
     return () => window.removeEventListener('message', onMessage)
-  }, [editing, onSelect])
+  }, [editing, onSelect, onLanguages])
 
   const [slots, setSlots] = useState<[string | null, string | null]>([null, null])
   const [active, setActive] = useState(0)

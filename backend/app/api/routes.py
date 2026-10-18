@@ -42,6 +42,7 @@ class GenerateBody(BaseModel):
     project_id: Optional[str] = None
     style: Optional[str] = None  # an id from STYLES; None = let the AI decide
     photo_ids: list[str] = []  # the person's own photos, uploaded via /photos
+    bilingual: bool = False  # Ukrainian + English with a language switcher
 
 
 @router.post("/generate")
@@ -95,6 +96,7 @@ async def generate(body: GenerateBody, user: str = Depends(current_user)):
         previous_html=previous_html,
         style=STYLES.get(body.style) if body.style else None,
         photos=attached,
+        bilingual=body.bilingual,
     )
     return StreamingResponse(
         _generation_events(request, body, user), media_type="application/x-ndjson"

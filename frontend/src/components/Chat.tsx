@@ -40,6 +40,8 @@ type Props = {
   paused: boolean
   style: string | null
   onStyleChange: (style: string | null) => void
+  bilingual: boolean
+  onBilingualChange: (value: boolean) => void
   onNewSite: () => void
   onSend: (prompt: string) => void
   // The person's own photos to send with the next message.
@@ -58,6 +60,8 @@ export default function Chat({
   paused,
   style,
   onStyleChange,
+  bilingual,
+  onBilingualChange,
   onNewSite,
   onSend,
   tray,
@@ -222,6 +226,15 @@ export default function Chat({
           <>
             <span className="chat__label">{t('chat.style')}</span>
             <StylePicker value={style} onChange={onStyleChange} />
+            <button
+              type="button"
+              className={`chip chip--wide${bilingual ? ' chip--active' : ''}`}
+              aria-pressed={bilingual}
+              title={t('chat.bilingualHint')}
+              onClick={() => onBilingualChange(!bilingual)}
+            >
+              {t('chat.bilingual')}
+            </button>
           </>
         )}
         {limitReached && usage?.limit != null && (

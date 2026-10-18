@@ -307,6 +307,13 @@ a.btn {
   font-size: 0.78rem;
 }
 
+.btn--active {
+  background: var(--sky);
+  border-color: var(--sky-edge);
+  box-shadow: 0 3px 0 var(--sky-edge);
+  color: var(--sky-text);
+}
+
 .btn--link {
   color: var(--sky-text);
 }
@@ -690,6 +697,11 @@ a.btn {
   font-weight: 800;
 }
 
+.chip--wide {
+  margin-top: 0.45rem;
+  align-self: flex-start;
+}
+
 /* A dot that hints at each style's look. */
 .chip__swatch {
   flex: none;
@@ -792,6 +804,12 @@ a.btn {
   border-radius: 8px;
   background: none;
   cursor: pointer;
+}
+
+.edit-tools__langs {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 
 .edit-tools__link {

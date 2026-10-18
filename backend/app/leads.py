@@ -183,8 +183,8 @@ def capture_script(slug: str) -> str:
         'var t=(el.type||"").toLowerCase();if(skip.indexOf(t)>=0)return;'
         'if((t==="checkbox"||t==="radio")&&!el.checked)return;'
         'var v=(el.value||"").trim();if(!v)return;if(t==="checkbox"&&v==="on")v="✓";var l="";'
-        'if(el.id){var x=f.querySelector("label[for=\\""+el.id+"\\"]");if(x)l=x.textContent;}'
-        'if(!l&&el.closest("label"))l=el.closest("label").textContent;'
+        'if(el.id){var x=f.querySelector("label[for=\\""+el.id+"\\"]");if(x)l=x.innerText||x.textContent;}'
+        'if(!l&&el.closest("label"))l=el.closest("label").innerText||el.closest("label").textContent;'
         'l=(l||el.getAttribute("aria-label")||el.placeholder||el.name||t).replace(/\\s+/g," ").trim();'
         'out.push([l.slice(0,60),v.slice(0,1000)]);});'
         "if(!out.length)return;"

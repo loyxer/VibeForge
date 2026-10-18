@@ -10,7 +10,7 @@ import { Privacy, Terms } from './components/Legal'
 import TopBar from './components/TopBar'
 import Stats from './components/Stats'
 import EditToolbar from './components/EditToolbar'
-import type { Selection } from './textEditor'
+import type { Selection, SiteLanguages } from './textEditor'
 import { apiFetch, readEvents, Usage } from './api'
 import { discardPhoto, MAX_PHOTOS_PER_SITE, shrink, TrayPhoto, uploadPhoto } from './photoUpload'
 import { supabase } from './supabase'
@@ -90,6 +90,8 @@ function Workspace({ session }: { session: Session | null }) {
   const [progress, setProgress] = useState<Progress | null>(null)
   const [liveCode, setLiveCode] = useState('')
   const [style, setStyle] = useState<string | null>(null)
+  // Ukrainian + English with a switcher; asked for before a new site is made.
+  const [bilingual, setBilingual] = useState(false)
   const [publishedUrl, setPublishedUrl] = useState<string | null>(null)
   const [publishedStale, setPublishedStale] = useState(false)
   const [publishBusy, setPublishBusy] = useState(false)
@@ -103,6 +105,7 @@ function Workspace({ session }: { session: Session | null }) {
   const preview = useRef<PreviewHandle>(null)
   // What was clicked in the preview while editing, and the photos uploaded for it.
   const [selection, setSelection] = useState<Selection | null>(null)
+  const [editLangs, setEditLangs] = useState<SiteLanguages | null>(null)
   const [editPhotos, setEditPhotos] = useState<{ id: string; url: string }[]>([])
   const [galleryOpen, setGalleryOpen] = useState(false)
   const [projectName, setProjectName] = useState<string | null>(null)
@@ -174,7 +177,7 @@ function Workspace({ session }: { session: Session | null }) {
     setTray([])
   }
 
-  async function handleSend(prompt: string) {
+  async function handleSend(prompt: string, makeBilingual = false) {
     setViewing(null) // edits always build on the latest version
     const photoIds = tray.flatMap((p) => (p.status === 'ready' && p.id ? [p.id] : []))
     setMessages((m) => [...m, { role: 'user', text: prompt, photos: photoIds.length }])
@@ -187,7 +190,13 @@ function Workspace({ session }: { session: Session | null }) {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           // The style shapes a new site; edits keep the site's own look.
-          body: JSON.stringify({ prompt, project_id: id, style: id ? null : style, photo_ids: photoIds }),
+          body: JSON.stringify({
+            prompt,
+            project_id: id,
+            style: id ? null : style,
+            photo_ids: photoIds,
+            bilingual: id ? makeBilingual : bilingual,
+          }),
         })
 
       let res = await post(projectId)
@@ -331,6 +340,7 @@ function Workspace({ session }: { session: Session | null }) {
   function stopEditing() {
     setEditing(false)
     setSelection(null)
+    setEditLangs(null)
     setEditPhotos([])
   }
 
@@ -423,6 +433,8 @@ function Workspace({ session }: { session: Session | null }) {
           paused={editing}
           style={style}
           onStyleChange={setStyle}
+          bilingual={bilingual}
+          onBilingualChange={setBilingual}
           onNewSite={handleNewSite}
           onSend={handleSend}
           tray={tray}
@@ -460,6 +472,7 @@ function Workspace({ session }: { session: Session | null }) {
           {editing && (
             <EditToolbar
               selection={selection}
+              languages={editLangs}
               projectId={projectId}
               send={(command) => preview.current?.sendCommand(command)}
               onUploaded={(photo) => setEditPhotos((all) => [...all, photo])}
@@ -494,6 +507,7 @@ function Workspace({ session }: { session: Session | null }) {
               liveCode={liveCode}
               editing={editing}
               onSelect={setSelection}
+              onLanguages={setEditLangs}
               device={device}
             />
           </div>
@@ -506,6 +520,8 @@ function Workspace({ session }: { session: Session | null }) {
               busy={publishBusy}
               historyOpen={historyOpen}
               onToggleHistory={() => setHistoryOpen((open) => !open)}
+              bilingual={/\sdata-l="/.test(html ?? '')}
+              onAddLanguage={() => handleSend(t('lang.addPrompt'), true)}
               onEditText={() => {
                 setViewing(null) // edits always apply to the current version
                 setEditing(true)

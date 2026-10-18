@@ -13,6 +13,9 @@ type Props = {
   busy: boolean
   historyOpen: boolean
   onToggleHistory: () => void
+  // The site already has two languages.
+  bilingual: boolean
+  onAddLanguage: () => void
   onEditText: () => void
   onDownload: () => void
   onPublish: () => void
@@ -26,6 +29,8 @@ export default function SiteActions({
   busy,
   historyOpen,
   onToggleHistory,
+  bilingual,
+  onAddLanguage,
   onEditText,
   onDownload,
   onPublish,
@@ -77,6 +82,11 @@ export default function SiteActions({
         <button type="button" className="btn" onClick={onToggleHistory} aria-expanded={historyOpen}>
           {historyOpen ? t('actions.hideHistory') : t('actions.history')}
         </button>
+        {!bilingual && (
+          <button type="button" className="btn" onClick={onAddLanguage} title={t('actions.addLanguageHint')}>
+            {t('actions.addLanguage')}
+          </button>
+        )}
         <button type="button" className="btn" onClick={onDownload}>
           {t('actions.download')}
         </button>

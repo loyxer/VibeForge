@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from app import projects, supabase
+from app.generation.languages import primary_only
 from app.supabase import rest as _rest
 
 SLUG_PATTERN = re.compile(r"^[a-z0-9]{8}$")
@@ -115,7 +116,11 @@ _BADGE_STYLE = (
 def with_badge(html: str) -> str:
     html = _BADGE.sub("", html)
     lang = re.search(r"<html\b[^>]*\slang=[\"']?(\w+)", html, re.I)
-    text = _BADGE_TEXT["uk" if lang and lang.group(1).lower() in ("uk", "ua") else "en"]
+    if 'data-l="' in html:
+        # A two-language page: the badge speaks whichever language is shown.
+        text = "".join(f'<span data-l="{code}">{words}</span>' for code, words in _BADGE_TEXT.items())
+    else:
+        text = _BADGE_TEXT["uk" if lang and lang.group(1).lower() in ("uk", "ua") else "en"]
     frontend = os.getenv("FRONTEND_ORIGIN", "").rstrip("/") or "http://localhost:5173"
     badge = (
         f'<a id="vf-badge" href="{html_lib.escape(frontend)}/?utm_source=vf-badge" target="_blank" '
@@ -197,6 +202,7 @@ def with_link_preview(html: str, url: str) -> str:
 
 
 def _text_of(pattern: str, html: str) -> str:
+    html = primary_only(html)  # a two-language page: one language only
     m = re.search(pattern, html, re.I | re.S)
     return _plain(m.group(1)) if m else ""
 
@@ -215,6 +221,7 @@ def _meta_description(html: str) -> str:
 
 
 def _first_paragraph(html: str) -> str:
+    html = primary_only(html)
     body = re.sub(r"<(script|style)\b.*?</\1>", "", html, flags=re.I | re.S)
     for m in re.finditer(r"<p\b[^>]*>(.*?)</p>", body, re.I | re.S):
         text = _plain(m.group(1))

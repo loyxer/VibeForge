@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { isKey, useT } from '../i18n'
 import { shrink, uploadPhoto } from '../photoUpload'
-import type { EditorCommand, Selection } from '../textEditor'
+import type { EditorCommand, Selection, SiteLanguages } from '../textEditor'
 
 type Props = {
   selection: Selection | null
+  languages: SiteLanguages | null
   projectId: string | null
   send: (command: EditorCommand) => void
   // A photo the person just uploaded to put on the page.
@@ -15,7 +16,7 @@ type Props = {
 const UNSAFE_LINK = /^\s*(javascript|data|vbscript):/i
 
 /** Tools for the element just clicked in the preview: colors, photo, link. */
-export default function EditToolbar({ selection, projectId, send, onUploaded }: Props) {
+export default function EditToolbar({ selection, languages, projectId, send, onUploaded }: Props) {
   const t = useT()
   const fileInput = useRef<HTMLInputElement>(null)
   const [href, setHref] = useState('')
@@ -50,10 +51,34 @@ export default function EditToolbar({ selection, projectId, send, onUploaded }: 
     send({ cmd: 'href', value: href.trim() })
   }
 
-  if (!selection) return <div className="edit-tools edit-tools--empty">{t('edit.pick')}</div>
+  const languageSwitch = languages && (
+    <span className="edit-tools__langs" role="group" aria-label={t('edit.siteLanguage')}>
+      {t('edit.siteLanguage')}
+      {languages.all.map((code) => (
+        <button
+          key={code}
+          type="button"
+          className={`btn btn--small${languages.current === code ? ' btn--active' : ''}`}
+          aria-pressed={languages.current === code}
+          onClick={() => send({ cmd: 'lang', value: code })}
+        >
+          {code === 'uk' ? 'УКР' : code === 'en' ? 'ENG' : code.toUpperCase()}
+        </button>
+      ))}
+    </span>
+  )
+
+  if (!selection)
+    return (
+      <div className="edit-tools edit-tools--empty">
+        <span>{t('edit.pick')}</span>
+        {languageSwitch}
+      </div>
+    )
 
   return (
     <div className="edit-tools">
+      {languageSwitch}
       <span className="edit-tools__what" title={selection.label}>
         {t('edit.selected', { label: selection.label })}
       </span>

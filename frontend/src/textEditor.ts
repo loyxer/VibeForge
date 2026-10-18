@@ -37,6 +37,18 @@ const EDITOR_SCRIPT = `
     return null;
   }
 
+  // A two-language site: tell the toolbar, so the person can edit either one.
+  var langs = [];
+  document.querySelectorAll('[data-l]').forEach(function (e) {
+    var l = e.getAttribute('data-l');
+    if (langs.indexOf(l) < 0) langs.push(l);
+  });
+  var originalLang = document.documentElement.getAttribute('data-lang');
+  function reportLangs() {
+    if (langs.length > 1) parent.postMessage({ type: 'vf-langs', languages: { all: langs, current: document.documentElement.getAttribute('data-lang') } }, '*');
+  }
+  reportLangs();
+
   function report() {
     var el = selected, link = el && el.closest('a');
     var cs = el && getComputedStyle(el);
@@ -84,6 +96,11 @@ const EDITOR_SCRIPT = `
   window.addEventListener('submit', function (e) { e.preventDefault(); e.stopPropagation(); }, true);
 
   function apply(cmd, value) {
+    if (cmd === 'ping') return reportLangs();
+    if (cmd === 'lang') {
+      if (langs.indexOf(value) >= 0) { document.documentElement.setAttribute('data-lang', value); reportLangs(); }
+      return;
+    }
     if (cmd === 'undo') {
       var step = undo.pop();
       if (step) step.changes.forEach(function (c) {
@@ -133,6 +150,8 @@ const EDITOR_SCRIPT = `
     if (e.data.type !== 'vf-get-html') return;
     var doc = document.documentElement.cloneNode(true);
     doc.querySelectorAll('[contenteditable]').forEach(function (el) { el.removeAttribute('contenteditable'); });
+    // Looking at the other language mustn't change which one the site starts in.
+    if (originalLang) doc.setAttribute('data-lang', originalLang);
     doc.querySelectorAll('[data-vf-sel],[data-vf-photo]').forEach(function (el) {
       el.removeAttribute('data-vf-sel'); el.removeAttribute('data-vf-photo');
     });
@@ -199,5 +218,8 @@ export type Selection = {
 }
 
 export type EditorCommand =
-  | { cmd: 'color' | 'bg' | 'href' | 'photo'; value: string }
+  | { cmd: 'color' | 'bg' | 'href' | 'photo' | 'lang'; value: string }
   | { cmd: 'up' | 'undo' }
+
+/** A site with two languages: all of them, and the one shown right now. */
+export type SiteLanguages = { all: string[]; current: string }
