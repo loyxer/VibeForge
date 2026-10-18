@@ -15,6 +15,7 @@ _handler.setFormatter(logging.Formatter("%(levelname)s:     %(message)s"))
 _log.addHandler(_handler)
 _log.propagate = False
 
+import asyncio  # noqa: E402
 import threading  # noqa: E402
 from contextlib import asynccontextmanager  # noqa: E402
 
@@ -22,6 +23,11 @@ from fastapi import FastAPI  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 
 from app.api.routes import public_router, router  # noqa: E402
+
+# How long a stop waits for sites still being made (seconds) — a little under
+# the longest shutdown delay Render allows (300).
+SHUTDOWN_WAIT = 280
+
 
 @asynccontextmanager
 async def lifespan(_app):
@@ -31,6 +37,16 @@ async def lifespan(_app):
 
     threading.Thread(target=leads.register_webhook, daemon=True).start()
     yield
+    # Shutting down (a new version is going live): uvicorn already lets open
+    # requests, such as a site being streamed, finish. Sites being made for a
+    # Telegram chat run outside any request, so wait for them here — Render
+    # stops the process for good after its own delay (see README).
+    from app.api import routes
+
+    pending = list(routes._chat_tasks)
+    if pending:
+        _log.info("Shutting down: waiting for %d Telegram site(s)", len(pending))
+        await asyncio.wait(pending, timeout=SHUTDOWN_WAIT)
 
 
 app = FastAPI(title="VibeForge API", lifespan=lifespan)

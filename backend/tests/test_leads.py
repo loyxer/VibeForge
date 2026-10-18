@@ -298,3 +298,26 @@ def test_done_message_links_to_the_site(persistent, chat, monkeypatch):
     say(persistent, "сайт для кав'ярні")
     project_id = persistent.get("/api/projects").json()["items"][0]["id"]
     assert f"https://app.example/?open={project_id}" in chat[-1][1]
+
+
+def test_shutdown_waits_for_sites_still_being_made(monkeypatch):
+    """A new version going live mustn't cut off a site made for a chat."""
+    import asyncio
+
+    from app import main
+
+    finished = []
+
+    async def run():
+        async def slow_site():
+            await asyncio.sleep(0.2)
+            finished.append(True)
+
+        routes._chat_tasks.add(task := asyncio.create_task(slow_site()))
+        task.add_done_callback(routes._chat_tasks.discard)
+        async with main.lifespan(None):
+            pass  # the server runs, then is told to stop
+
+    monkeypatch.setattr(leads, "register_webhook", lambda: None)
+    asyncio.run(run())
+    assert finished == [True]
