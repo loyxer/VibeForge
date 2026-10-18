@@ -19,6 +19,7 @@ import time
 from collections.abc import AsyncIterator
 
 from google import genai
+from google.genai import types
 
 from . import base
 from .base import Event, GenerationRequest, SiteGenerator
@@ -154,6 +155,10 @@ long or unusual phrases find nothing. Describe things generically, without
 brand or team names: these are stock photos, they can't show a specific
 company's product. Use photos where they genuinely
 help — places, food, people, products, atmosphere — typically 3–6 per page.
+Stock photos of the business's own premises (its interior, its storefront)
+are photos of different places, so use at most one of each; two different
+"café interiors" make it look like two different cafés. Use details for
+the rest: the coffee, the food, the products, hands at work, the city.
 When editing a page, keep every existing photo (tags that already have a
 src or background-image) exactly as it is unless asked to change it, and
 keep any element with class "vf-photo-credits" and the <style id="vf-safety">
@@ -162,6 +167,19 @@ draw complex real-world things — phones, laptops, cars, people, animals,
 food, buildings — out of CSS or SVG shapes: it always looks crude; use a
 photo or leave it out. Small icons as simple inline SVGs (or emoji) are
 fine."""
+
+
+def _own_photos_note(photos) -> str:
+    listing = "\n".join(f"Photo {n}: {p.url}" for n, p in enumerate(photos, start=1))
+    return f"""The person attached {len(photos)} photo(s) of their own, shown after this
+text in the same order. Put every one of them on the page: where the
+instruction says, otherwise where each fits best by what it shows. Use
+exactly these URLs, as <img src="URL" alt="..."> or a CSS background-image
+url('URL'):
+{listing}
+They are the person's own photos: no data-photo attribute and no credit
+line for them, and no stock photos of the same things they already show
+(if they show the café's interior, don't add a stock interior)."""
 
 
 class GeminiGenerator(SiteGenerator):
@@ -197,8 +215,16 @@ class GeminiGenerator(SiteGenerator):
             parts.append(f"Visual style for this site: {request.style}")
         if request.previous_html:
             parts.append(f"Existing HTML:\n{request.previous_html}")
+        if request.photos:
+            parts.append(_own_photos_note(request.photos))
         parts.append(f"Instruction: {request.prompt}")
-        contents = "\n\n".join(parts)
+        text = "\n\n".join(parts)
+        # The AI looks at the person's photos to see what each one shows.
+        contents = (
+            [text, *(types.Part.from_bytes(data=p.data, mime_type=p.mime) for p in request.photos)]
+            if request.photos
+            else text
+        )
 
         failures: list[str] = []  # "quota" / "busy", to pick the final error
         last_error: Exception | None = None
@@ -270,7 +296,7 @@ class GeminiGenerator(SiteGenerator):
             ) from last_error
         raise last_error  # every model was missing (NOT_FOUND)
 
-    async def _start(self, model: str, contents: str):
+    async def _start(self, model: str, contents):
         """Open a stream and wait for its first chunk, within the timeout.
 
         Raises TimeoutError if the model stays silent; the half-open request

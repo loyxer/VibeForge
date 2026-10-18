@@ -32,6 +32,7 @@ _TEMPLATE = """<!doctype html>
     <h1>Mock preview</h1>
     <p>This is a placeholder — GENERATOR=mock is active.</p>
     <p><strong>Prompt:</strong> {prompt}</p>
+    {photos}
   </div>
 </body>
 </html>"""
@@ -45,7 +46,11 @@ class MockGenerator(SiteGenerator):
         self._delay = delay
 
     async def stream(self, request: GenerationRequest) -> AsyncIterator[Event]:
-        page = _TEMPLATE.format(prompt=html_lib.escape(request.prompt))
+        photos = "".join(
+            f'<img src="{html_lib.escape(p.url)}" alt="" style="width:30%;margin:4px">'
+            for p in request.photos
+        )
+        page = _TEMPLATE.format(prompt=html_lib.escape(request.prompt), photos=photos)
         yield ("model", "mock")
         step = max(len(page) // 10, 1)
         for i in range(0, len(page), step):

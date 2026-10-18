@@ -210,6 +210,19 @@ def test_todays_date_goes_into_the_prompt(monkeypatch):
     assert "Today is 2026-10-18: use 2026 as the current year" in client.contents
 
 
+def test_own_photos_are_shown_to_the_ai():
+    from app.user_photos import AttachedPhoto
+
+    photo = AttachedPhoto("p1", "https://x/site-photos/u/p1.jpg", b"\xff\xd8\xffdata", "image/jpeg")
+    gen, client = make({"a": ["<html>a</html>"]})
+    asyncio.run(gen.generate(GenerationRequest(prompt="my cafe", photos=[photo])))
+    text, image = client.contents
+    assert "Photo 1: https://x/site-photos/u/p1.jpg" in text
+    assert text.rstrip().endswith("Instruction: my cafe")
+    assert image.inline_data.data == photo.data
+    assert image.inline_data.mime_type == "image/jpeg"
+
+
 def test_strips_markdown_fence():
     gen, _ = make({"a": ["```html\n<html>a</html>\n```"]})
     assert generate(gen).html == "<html>a</html>"

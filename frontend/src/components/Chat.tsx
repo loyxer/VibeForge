@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useRef, useState } from 'react'
 import type { Usage } from '../api'
 import { isKey, Key, useT } from '../i18n'
 import Mascot from './Mascot'
+import { MAX_PHOTOS_PER_SITE, TrayPhoto } from '../photoUpload'
 import StylePicker from './StylePicker'
 
 type Params = Record<string, string | number>
@@ -10,8 +11,8 @@ type Params = Record<string, string | number>
 // ours or the server's English text. Kept untranslated so switching the
 // language re-translates the whole conversation.
 export type ChatMessage =
-  | { role: 'user'; text: string }
-  | { role: 'assistant'; key: Key }
+  | { role: 'user'; text: string; photos?: number }
+  | { role: 'assistant'; key: Key; params?: Params }
   | { role: 'assistant'; error: string }
 
 // The live line while a site is being built: a key of ours or server text.
@@ -32,6 +33,10 @@ type Props = {
   onStyleChange: (style: string | null) => void
   onNewSite: () => void
   onSend: (prompt: string) => void
+  // The person's own photos to send with the next message.
+  tray: TrayPhoto[]
+  onAddPhotos: (files: File[]) => void
+  onRemovePhoto: (key: string) => void
 }
 
 export default function Chat({
@@ -46,10 +51,15 @@ export default function Chat({
   onStyleChange,
   onNewSite,
   onSend,
+  tray,
+  onAddPhotos,
+  onRemovePhoto,
 }: Props) {
   const t = useT()
   const [input, setInput] = useState('')
   const limitReached = usage?.remaining_today === 0
+  const uploading = tray.some((p) => p.status === 'uploading')
+  const photoErrors = tray.flatMap((p) => (p.error ? [p.error] : []))
   const list = useRef<HTMLDivElement>(null)
 
   // Keep the newest message (and the live progress line) in view — by
@@ -62,7 +72,7 @@ export default function Chat({
 
   function submitPrompt() {
     const prompt = input.trim()
-    if (!prompt || loading || limitReached || paused) return
+    if (!prompt || loading || limitReached || paused || uploading) return
     onSend(prompt)
     setInput('')
   }
@@ -96,12 +106,13 @@ export default function Chat({
           m.role === 'user' ? (
             <div key={i} className="bubble bubble--user">
               {t.server(m.text)}
+              {m.photos ? <span className="bubble__photos">📎 {t.plural('photos.count', m.photos)}</span> : null}
             </div>
           ) : (
             <div key={i} className="reply">
               <Mascot />
               {'key' in m ? (
-                <div className="bubble bubble--assistant">{t(m.key)}</div>
+                <div className="bubble bubble--assistant">{t(m.key, m.params)}</div>
               ) : (
                 <div className="bubble bubble--error">{t('reply.error', { detail: say(m.error) })}</div>
               )}
@@ -147,10 +158,50 @@ export default function Chat({
             }
           }}
         />
+        {tray.length > 0 && (
+          <ul className="photo-tray">
+            {tray.map((p) => (
+              <li key={p.key} className={`photo-tray__item photo-tray__item--${p.status}`}>
+                <img src={p.preview} alt="" />
+                {p.status === 'uploading' && <span className="photo-tray__spinner" aria-label={t('photos.uploading')} />}
+                <button
+                  type="button"
+                  className="photo-tray__remove"
+                  aria-label={t('photos.remove')}
+                  onClick={() => onRemovePhoto(p.key)}
+                >
+                  ×
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        {photoErrors.length > 0 && <p className="chat__photo-error">{say(photoErrors[0])}</p>}
+        <div className="chat__photos-row">
+          <label className={`btn btn--small photo-add${tray.length >= MAX_PHOTOS_PER_SITE || loading ? ' photo-add--disabled' : ''}`}>
+            📎 {t('photos.add')}
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              hidden
+              disabled={tray.length >= MAX_PHOTOS_PER_SITE || loading}
+              onChange={(e) => {
+                onAddPhotos(Array.from(e.target.files ?? []))
+                e.target.value = '' // picking the same file again still fires
+              }}
+            />
+          </label>
+          <span className="chat__photos-hint">
+            {tray.length > 0
+              ? t('photos.counter', { n: tray.length, max: MAX_PHOTOS_PER_SITE })
+              : t('photos.hint', { max: MAX_PHOTOS_PER_SITE })}
+          </span>
+        </div>
         <button
           type="submit"
           className="btn btn--orange btn--big"
-          disabled={loading || limitReached || paused || !input.trim()}
+          disabled={loading || limitReached || paused || uploading || !input.trim()}
         >
           {loading ? t('chat.sending') : isNewSite ? t('chat.send') : t('chat.sendEdit')}
         </button>

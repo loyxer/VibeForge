@@ -4,12 +4,12 @@ import os
 from collections.abc import AsyncIterator
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from pydantic import BaseModel
 
-from app import auth, photos, projects, publishing, supabase, usage, versions
+from app import auth, photos, projects, publishing, supabase, usage, user_photos, versions
 from app.auth import current_user
 from app.generation.base import GenerationRequest, SiteGenerator, finish_html
 from app.generation.gemini import ModelsBusyError, QuotaExceededError
@@ -41,6 +41,7 @@ class GenerateBody(BaseModel):
     prompt: str
     project_id: Optional[str] = None
     style: Optional[str] = None  # an id from STYLES; None = let the AI decide
+    photo_ids: list[str] = []  # the person's own photos, uploaded via /photos
 
 
 @router.post("/generate")
@@ -79,10 +80,21 @@ async def generate(body: GenerateBody, user: str = Depends(current_user)):
             raise HTTPException(status_code=404, detail="Project not found")
         previous_html = project["html"]
 
+    if len(body.photo_ids) > user_photos.MAX_PER_SITE:
+        raise HTTPException(
+            status_code=400,
+            detail=f"You can add up to {user_photos.MAX_PER_SITE} photos per site",
+        )
+    try:
+        attached = await run_in_threadpool(user_photos.for_generation, user, body.photo_ids)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Photo not found")
+
     request = GenerationRequest(
         prompt=body.prompt,
         previous_html=previous_html,
         style=STYLES.get(body.style) if body.style else None,
+        photos=attached,
     )
     return StreamingResponse(
         _generation_events(request, body, user), media_type="application/x-ndjson"
@@ -116,6 +128,7 @@ async def _generation_events(
             project_id = await run_in_threadpool(
                 projects.create_project, user, html, body.prompt
             )
+        await run_in_threadpool(user_photos.mark_sent, user, body.photo_ids, project_id)
         await run_in_threadpool(versions.add, project_id, user, body.prompt, html)
         # Only a site that was actually delivered and saved counts.
         await run_in_threadpool(usage.record, user, model)
@@ -133,8 +146,17 @@ async def _generation_events(
         yield _line({"type": "error", "status": 500, "detail": f"{type(e).__name__}: {e}"})
         return
 
+    # The AI sometimes leaves a photo out; say which, so the person can ask
+    # for it (numbered in the order they attached them).
+    unused = [n for n, p in enumerate(request.photos, start=1) if p.url not in html]
     yield _line(
-        {"type": "done", "project_id": project_id, "html": html, "remaining_today": remaining}
+        {
+            "type": "done",
+            "project_id": project_id,
+            "html": html,
+            "remaining_today": remaining,
+            "unused_photos": unused,
+        }
     )
 
 
@@ -168,6 +190,8 @@ def get_project(project_id: str, user: str = Depends(current_user)):
 @router.delete("/projects/{project_id}")
 def delete_project(project_id: str, user: str = Depends(current_user)):
     try:
+        projects.get_project(project_id, user)  # only the owner's photos go
+        user_photos.forget_project(user, project_id)
         projects.delete_project(project_id, user)
     except KeyError:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -195,6 +219,7 @@ def rename_project(project_id: str, body: RenameBody, user: str = Depends(curren
 @router.delete("/account")
 def delete_account(user: str = Depends(current_user)):
     """Delete the signed-in user's account and everything in it, at once."""
+    user_photos.forget_user(user)  # files aren't deleted by the database cascade
     if supabase.config():
         auth.delete_account(user)
     else:
@@ -202,6 +227,40 @@ def delete_account(user: str = Depends(current_user)):
             publishing.forget_project(project_id)
             versions.forget_project(project_id)
     return {"status": "deleted"}
+
+
+@router.post("/photos")
+async def upload_photo(
+    request: Request, project_id: Optional[str] = None, user: str = Depends(current_user)
+):
+    """One of the person's own photos for a site, as the raw image body
+    (already shrunk by the browser). Returns {"id", "url"}."""
+    data = await request.body()
+    mime = request.headers.get("content-type", "")
+    try:
+        return await run_in_threadpool(user_photos.add, user, data, mime, project_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Project not found")
+    except user_photos.PhotoError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.delete("/photos/{photo_id}")
+def remove_photo(photo_id: str, user: str = Depends(current_user)):
+    try:
+        user_photos.remove(user, photo_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Photo not found")
+    return {"status": "deleted"}
+
+
+@router.get("/uploads/{path:path}")
+def uploaded_photo(path: str):
+    """Photos uploaded in local mode (in production they come from Supabase)."""
+    file = user_photos.local_file(path)
+    if file is None:
+        raise HTTPException(status_code=404, detail="Photo not found")
+    return FileResponse(file)
 
 
 class TextEditBody(BaseModel):

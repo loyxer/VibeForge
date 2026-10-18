@@ -6,7 +6,7 @@ import type { ReactNode } from 'react'
 import { useLang } from '../i18n'
 
 const CONTACT = 'vibeforge.verify@gmail.com'
-const UPDATED = { en: 'October 15, 2026', uk: '15 жовтня 2026 р.' }
+const UPDATED = { en: 'October 18, 2026', uk: '18 жовтня 2026 р.' }
 
 const FRAME = {
   en: { back: '← Back to VibeForge', updated: 'Last updated:', contact: 'Contact', questions: 'Questions or requests:' },
@@ -63,6 +63,13 @@ function PrivacyEn() {
           from them, so your projects are there when you come back.
         </li>
         <li>
+          <strong>Your photos.</strong> Photos you add to a site. Before sending them, your
+          browser shrinks them (to 1600 pixels) and strips their metadata, including where
+          they were taken; we store only that smaller copy. Photos are reachable at random,
+          hard-to-guess links: anyone who has a link can see the photo, including visitors
+          of a published site.
+        </li>
+        <li>
           <strong>Usage records.</strong> The time of each generation and which AI model made
           it. This is how the daily limit is counted.
         </li>
@@ -78,13 +85,17 @@ function PrivacyEn() {
 
       <h3>Who processes it</h3>
       <ul>
-        <li><strong>Supabase</strong> stores accounts and projects (servers in the EU, Ireland).</li>
+        <li><strong>Supabase</strong> stores accounts, projects and your photos (servers in the EU, Ireland).</li>
         <li><strong>Render</strong> runs our server (USA) and <strong>Vercel</strong> serves the site.</li>
         <li>
-          <strong>Google Gemini</strong> generates the websites: your prompt and the current
-          version of your site are sent to Google. We use Google's free tier, where Google may
-          use this content to improve its products and human reviewers may read it.{' '}
-          <strong>Do not put personal or confidential information in prompts.</strong>
+          <strong>Google Gemini</strong> generates the websites: your prompt, the current
+          version of your site and the photos you add to a prompt are sent to Google. We use
+          Google's free tier, where Google may use this content to improve its products and
+          human reviewers may read it.{' '}
+          <strong>
+            Do not put personal or confidential information in prompts or photos (for
+            example, documents).
+          </strong>
         </li>
         <li><strong>Gmail</strong> sends the sign-in and password-reset codes.</li>
         <li>
@@ -107,6 +118,11 @@ function PrivacyEn() {
         account and everything in it, choose "Delete account" in the account menu —
         everything is deleted immediately, including published sites (their links stop
         working). This cannot be undone.
+      </p>
+      <p>
+        Photos are deleted together with their site or account. A copy may stay in the content
+        delivery network's cache for up to an hour, after which its link stops working. Photos
+        you added but never sent are deleted automatically after a day.
       </p>
 
       <h3>Your rights</h3>
@@ -142,6 +158,13 @@ function PrivacyUk() {
           ними, — щоб ваші проєкти були на місці, коли ви повернетеся.
         </li>
         <li>
+          <strong>Ваші фото.</strong> Фото, які ви додаєте до сайту. Перед відправкою браузер
+          зменшує їх (до 1600 пікселів) і прибирає з них службові дані, зокрема місце зйомки;
+          ми зберігаємо лише цю зменшену копію. Фото доступні за випадковими посиланнями, які
+          важко вгадати: побачити їх може той, у кого є посилання, зокрема відвідувачі
+          опублікованого сайту.
+        </li>
+        <li>
           <strong>Записи про використання.</strong> Час кожної генерації та те, яка AI-модель її
           зробила. Так рахується денний ліміт.
         </li>
@@ -157,14 +180,17 @@ function PrivacyUk() {
 
       <h3>Хто обробляє дані</h3>
       <ul>
-        <li><strong>Supabase</strong> зберігає акаунти й проєкти (сервери в ЄС, Ірландія).</li>
+        <li><strong>Supabase</strong> зберігає акаунти, проєкти й ваші фото (сервери в ЄС, Ірландія).</li>
         <li><strong>Render</strong> запускає наш сервер (США), а <strong>Vercel</strong> віддає сайт.</li>
         <li>
-          <strong>Google Gemini</strong> створює сайти: ваш запит і поточна версія вашого сайту
-          надсилаються в Google. Ми користуємося безкоштовним рівнем Google, на якому Google
-          може використовувати цей вміст для покращення своїх продуктів, а читати його можуть
-          люди-рецензенти.{' '}
-          <strong>Не вказуйте в запитах особисту чи конфіденційну інформацію.</strong>
+          <strong>Google Gemini</strong> створює сайти: ваш запит, поточна версія вашого сайту та
+          фото, які ви додали до запиту, надсилаються в Google. Ми користуємося безкоштовним
+          рівнем Google, на якому Google може використовувати цей вміст для покращення своїх
+          продуктів, а читати його можуть люди-рецензенти.{' '}
+          <strong>
+            Не вказуйте в запитах і не додавайте на фото особисту чи конфіденційну інформацію
+            (наприклад, документи).
+          </strong>
         </li>
         <li><strong>Gmail</strong> надсилає коди для входу та відновлення пароля.</li>
         <li>
@@ -188,6 +214,11 @@ function PrivacyUk() {
         акаунт і все, що в ньому, натисніть «Видалити акаунт» у меню акаунта — усе буде видалено
         одразу, разом з опублікованими сайтами (їхні посилання перестануть працювати). Цю дію не
         можна скасувати.
+      </p>
+      <p>
+        Фото видаляються разом із сайтом або акаунтом. Копія фото може ще до години залишатися
+        в кеші мережі доставки (CDN), після чого посилання на нього перестає працювати. Фото,
+        які ви додали, але так і не надіслали, видаляються автоматично через добу.
       </p>
 
       <h3>Ваші права</h3>
@@ -220,6 +251,10 @@ function TermsEn() {
         The websites you generate are yours to use. AI output can contain mistakes and may
         resemble what other people generate, so review a site before you publish it. You are
         responsible for how you use it.
+      </p>
+      <p>
+        By adding photos you confirm that you have the right to use them (for example, they
+        are yours, or a client agreed to it) and that they contain nothing illegal.
       </p>
 
       <h3>Rules</h3>
@@ -263,6 +298,10 @@ function TermsUk() {
         Створені вами сайти належать вам для використання. Результат роботи AI може містити
         помилки й бути схожим на те, що створюють інші люди, тож перевірте сайт перед
         публікацією. Ви відповідаєте за те, як його використовуєте.
+      </p>
+      <p>
+        Додаючи фото, ви підтверджуєте, що маєте право їх використовувати (наприклад, це ваші
+        фото або фото клієнта, який на це погодився) і що на них немає незаконного вмісту.
       </p>
 
       <h3>Правила</h3>

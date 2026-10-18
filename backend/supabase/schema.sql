@@ -77,3 +77,27 @@ grant select, insert, delete on public.project_versions to service_role;
 
 -- A name the owner gave the site (null = called by its first request).
 alter table public.projects add column if not exists name text;
+
+-- The person's own photos for their sites (backend/app/user_photos.py). The
+-- files live in the public Storage bucket "site-photos", one folder per
+-- user; a row per photo says whose it is and which site it was added to.
+create table if not exists public.site_photos (
+  id uuid primary key,
+  user_id uuid not null references auth.users (id) on delete cascade,
+  project_id uuid references public.projects (id) on delete set null,
+  path text not null,
+  sent boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists site_photos_user_idx on public.site_photos (user_id, created_at);
+
+alter table public.site_photos enable row level security;
+grant select, insert, update, delete on public.site_photos to service_role;
+
+-- Public: a site's visitors load its photos straight from Storage. Only the
+-- backend (secret key) can upload or delete; the size and types match what
+-- user_photos.py accepts.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('site-photos', 'site-photos', true, 2000000, array['image/webp', 'image/jpeg', 'image/png'])
+on conflict (id) do nothing;

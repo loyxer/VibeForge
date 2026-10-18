@@ -44,6 +44,18 @@ const en = {
   'reply.restored': 'Done — that version is back.',
   'reply.saved': 'Saved your changes.',
   'reply.error': 'Error: {detail}',
+  'photos.add': 'Add photos',
+  'photos.hint': 'Your own photos, up to {max} per site',
+  'photos.counter': '{n} of {max} photos — say where to put them',
+  'photos.uploading': 'Uploading…',
+  'photos.remove': 'Remove photo',
+  'photos.tooLarge': 'That file is too large (10 MB at most).',
+  'photos.unsupported': "This browser can't open that file — try a JPEG or PNG.",
+  'photos.unused': "Some of your photos didn't make it onto the site: {list}. Tell me where to put them.",
+  'photos.count.one': '{n} photo',
+  'photos.count.few': '{n} photos',
+  'photos.count.many': '{n} photos',
+  'photos.count.other': '{n} photos',
 
   'error.interrupted': 'The connection was interrupted — please try again.',
   'error.generation': 'Could not build the site',
@@ -203,6 +215,18 @@ const uk: Record<Key, string> = {
   'reply.restored': 'Готово — цю версію повернуто.',
   'reply.saved': 'Зміни збережено.',
   'reply.error': 'Помилка: {detail}',
+  'photos.add': 'Додати фото',
+  'photos.hint': 'Свої фото, до {max} на сайт',
+  'photos.counter': '{n} з {max} фото — напиши, куди їх поставити',
+  'photos.uploading': 'Завантажую…',
+  'photos.remove': 'Прибрати фото',
+  'photos.tooLarge': 'Файл завеликий (щонайбільше 10 МБ).',
+  'photos.unsupported': 'Цей браузер не може відкрити такий файл — спробуй JPEG або PNG.',
+  'photos.unused': 'Не всі твої фото потрапили на сайт: {list}. Напиши, куди їх поставити.',
+  'photos.count.one': '{n} фото',
+  'photos.count.few': '{n} фото',
+  'photos.count.many': '{n} фото',
+  'photos.count.other': '{n} фото',
 
   'error.interrupted': 'З’єднання перервалося — спробуй ще раз.',
   'error.generation': 'Не вдалося створити сайт',
@@ -335,7 +359,7 @@ type Params = Record<string, string | number>
 export type Translate = {
   (key: Key, params?: Params): string
   /** Count-dependent text: picks `${base}.one|few|many|other` by the language's rules. */
-  plural: (base: 'gallery.steps', n: number) => string
+  plural: (base: 'gallery.steps' | 'photos.count', n: number) => string
   /** A message that came from the server (or Supabase) in English. */
   server: (text: string) => string
   lang: Lang
@@ -420,6 +444,10 @@ const SERVER_UK: Record<string, string> = {
   "VibeForge has used up today's free AI capacity for everyone — please try again tomorrow.":
     'VibeForge вичерпав безкоштовний ліміт AI на сьогодні для всіх користувачів — спробуй завтра.',
   "That doesn't look like this site's page": 'Це не схоже на сторінку цього сайту',
+  'Photo not found': 'Фото не знайдено',
+  "That file isn't a photo we can use (JPEG, PNG or WebP)": 'Цей файл не підходить — потрібне фото JPEG, PNG або WebP',
+  'That photo is too large': 'Фото завелике',
+  "You've reached the photo limit for your account": 'Досягнуто ліміту фото для твого акаунта',
   'Sign in to continue': 'Увійди, щоб продовжити',
   'Sign-in service unavailable — try again': 'Сервіс входу недоступний — спробуй ще раз',
   'Session expired — sign in again': 'Сесія завершилась — увійди знову',
@@ -431,6 +459,8 @@ function serverToUk(text: string): string {
   if (text in SERVER_UK) return SERVER_UK[text]
   let m = text.match(/^You've used all (\d+) free generations for today — more tomorrow\.$/)
   if (m) return fill(uk['usage.limitReached'], { limit: m[1] })
+  m = text.match(/^You can add up to (\d+) photos per site$/)
+  if (m) return `Можна додати щонайбільше ${m[1]} фото на сайт`
   m = text.match(/^↩ Restored version (\d+)$/)
   if (m) return `↩ Повернуто версію ${m[1]}`
   return text

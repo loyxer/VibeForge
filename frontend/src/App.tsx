@@ -9,6 +9,7 @@ import VersionHistory, { VersionSummary } from './components/VersionHistory'
 import { Privacy, Terms } from './components/Legal'
 import TopBar from './components/TopBar'
 import { apiFetch, readEvents, Usage } from './api'
+import { discardPhoto, MAX_PHOTOS_PER_SITE, shrink, TrayPhoto, uploadPhoto } from './photoUpload'
 import { supabase } from './supabase'
 import { useT } from './i18n'
 
@@ -93,6 +94,8 @@ function Workspace({ session }: { session: Session | null }) {
   const [galleryOpen, setGalleryOpen] = useState(false)
   const [projectName, setProjectName] = useState<string | null>(null)
   const [usage, setUsage] = useState<Usage | null>(null)
+  // The person's own photos waiting to go out with the next message.
+  const [tray, setTray] = useState<TrayPhoto[]>([])
 
   useEffect(() => {
     apiFetch('/api/usage')
@@ -109,9 +112,44 @@ function Workspace({ session }: { session: Session | null }) {
       { role: 'assistant', error: err instanceof Error && err.message ? err.message : fallback },
     ])
 
+  const updateTray = (key: string, change: Partial<TrayPhoto>) =>
+    setTray((all) => all.map((p) => (p.key === key ? { ...p, ...change } : p)))
+
+  function handleAddPhotos(files: File[]) {
+    const room = MAX_PHOTOS_PER_SITE - tray.length
+    for (const file of files.slice(0, Math.max(room, 0))) {
+      const key = crypto.randomUUID()
+      setTray((all) => [...all, { key, preview: URL.createObjectURL(file), status: 'uploading' }])
+      shrink(file)
+        .then((blob) => {
+          updateTray(key, { preview: URL.createObjectURL(blob) })
+          return uploadPhoto(blob, projectId)
+        })
+        .then(({ id }) => updateTray(key, { status: 'ready', id }))
+        .catch((err) => updateTray(key, { status: 'error', error: err instanceof Error ? err.message : 'error.generic' }))
+    }
+  }
+
+  function handleRemovePhoto(key: string) {
+    const photo = tray.find((p) => p.key === key)
+    if (photo?.id) discardPhoto(photo.id)
+    if (photo) URL.revokeObjectURL(photo.preview)
+    setTray((all) => all.filter((p) => p.key !== key))
+  }
+
+  // sent: the photos went out with a message, so they're on the site now.
+  function clearTray(sent: boolean) {
+    for (const photo of tray) {
+      if (!sent && photo.id) discardPhoto(photo.id)
+      URL.revokeObjectURL(photo.preview)
+    }
+    setTray([])
+  }
+
   async function handleSend(prompt: string) {
     setViewing(null) // edits always build on the latest version
-    setMessages((m) => [...m, { role: 'user', text: prompt }])
+    const photoIds = tray.flatMap((p) => (p.status === 'ready' && p.id ? [p.id] : []))
+    setMessages((m) => [...m, { role: 'user', text: prompt, photos: photoIds.length }])
     setLoading(true)
     setProgress({ text: 'progress.starting' })
 
@@ -121,7 +159,7 @@ function Workspace({ session }: { session: Session | null }) {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           // The style shapes a new site; edits keep the site's own look.
-          body: JSON.stringify({ prompt, project_id: id, style: id ? null : style }),
+          body: JSON.stringify({ prompt, project_id: id, style: id ? null : style, photo_ids: photoIds }),
         })
 
       let res = await post(projectId)
@@ -142,6 +180,7 @@ function Workspace({ session }: { session: Session | null }) {
       let lastPaint = 0
       let lastCode = 0
       let finished = false
+      let unusedPhotos: number[] = []
       for await (const event of readEvents(res)) {
         if (event.type === 'status') {
           setProgress({ text: event.text })
@@ -177,11 +216,19 @@ function Workspace({ session }: { session: Session | null }) {
           }
           setProjectId(event.project_id)
           setUsage((u) => (u ? { ...u, remaining_today: event.remaining_today } : u))
+          unusedPhotos = event.unused_photos ?? []
         }
       }
       if (!finished) throw new Error('error.interrupted')
 
-      setMessages((m) => [...m, { role: 'assistant', key: 'reply.done' }])
+      clearTray(true)
+      setMessages((m) => [
+        ...m,
+        { role: 'assistant', key: 'reply.done' },
+        ...(unusedPhotos.length
+          ? [{ role: 'assistant' as const, key: 'photos.unused' as const, params: { list: unusedPhotos.join(', ') } }]
+          : []),
+      ])
       setHistoryVersion((v) => v + 1)
     } catch (err) {
       fail(err, 'error.generation')
@@ -194,6 +241,7 @@ function Workspace({ session }: { session: Session | null }) {
 
   function handleGallerySelect(selection: GallerySelection) {
     setGalleryOpen(false)
+    clearTray(false)
     setProjectName(selection.name)
     setProjectId(selection.projectId)
     setHtml(selection.html)
@@ -211,6 +259,7 @@ function Workspace({ session }: { session: Session | null }) {
   }
 
   function handleNewSite() {
+    clearTray(false)
     setProjectName(null)
     setProjectId(null)
     setHtml(null)
@@ -340,6 +389,9 @@ function Workspace({ session }: { session: Session | null }) {
           onStyleChange={setStyle}
           onNewSite={handleNewSite}
           onSend={handleSend}
+          tray={tray}
+          onAddPhotos={handleAddPhotos}
+          onRemovePhoto={handleRemovePhoto}
         />
 
         <div className="stage">

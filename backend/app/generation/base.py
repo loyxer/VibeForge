@@ -13,10 +13,12 @@ so the preview can build up live instead of after minutes of silence.
 import re
 from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime
 from typing import Literal, Optional
 from zoneinfo import ZoneInfo
+
+from app.user_photos import AttachedPhoto
 
 Event = tuple[Literal["status", "model", "text", "reset"], str]
 
@@ -26,6 +28,8 @@ class GenerationRequest:
     prompt: str
     previous_html: Optional[str] = None
     style: Optional[str] = None  # design direction, see styles.py
+    # The person's own photos to put on the page (app/user_photos.py).
+    photos: list[AttachedPhoto] = field(default_factory=list)
 
 
 @dataclass

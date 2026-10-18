@@ -36,7 +36,14 @@ export type Usage = { limit: number | null; remaining_today: number | null }
 // What POST /api/generate streams back, one JSON object per line.
 export type GenerationEvent =
   | { type: 'status' | 'model' | 'text' | 'reset'; text: string }
-  | { type: 'done'; project_id: string; html: string; remaining_today: number | null }
+  | {
+      type: 'done'
+      project_id: string
+      html: string
+      remaining_today: number | null
+      // The person's photos the AI left out, numbered from 1 in the order sent.
+      unused_photos?: number[]
+    }
   | { type: 'error'; status: number; detail: string }
 
 export async function* readEvents(res: Response): AsyncGenerator<GenerationEvent> {
