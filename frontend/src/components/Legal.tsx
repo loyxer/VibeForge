@@ -80,6 +80,13 @@ function PrivacyEn() {
           the VibeForge bot so we can send submissions there.
         </li>
         <li>
+          <strong>Visits to published sites.</strong> When someone opens a published site, we
+          count the view for the site owner: we store the time and an anonymous code made from
+          the visitor's IP address and browser. We do not store the IP address itself, and the
+          code changes every day, so it can't identify a person or follow them from day to day.
+          No cookies are used for this.
+        </li>
+        <li>
           <strong>Usage records.</strong> The time of each generation and which AI model made
           it. This is how the daily limit is counted.
         </li>
@@ -121,6 +128,7 @@ function PrivacyEn() {
       <p>
         When you publish a site, anyone with its link can see it, without signing in. Your name
         and email are not shown on it. Unpublish it or delete the project to take it down.
+        The site owner sees how many views and visitors it had, but not who opened it.
       </p>
 
       <h3>How long we keep it</h3>
@@ -137,7 +145,8 @@ function PrivacyEn() {
       </p>
       <p>
         Submissions are deleted together with their site or account. You can disconnect
-        Telegram at any time in the account menu or with the /stop command in the bot.
+        Telegram at any time in the account menu or with the /stop command in the bot. Visit
+        records are deleted together with their site or account.
       </p>
 
       <h3>Your rights</h3>
@@ -190,6 +199,13 @@ function PrivacyUk() {
           вашого чату з ботом VibeForge, щоб надсилати туди заявки.
         </li>
         <li>
+          <strong>Відвідування опублікованих сайтів.</strong> Коли хтось відкриває опублікований
+          сайт, ми рахуємо перегляд для власника сайту: зберігаємо час і анонімний код,
+          створений з IP-адреси та браузера відвідувача. Саму IP-адресу ми не зберігаємо, а код
+          змінюється щодня, тож за ним не можна визначити людину чи стежити за нею з дня на
+          день. Файли cookie для цього не використовуються.
+        </li>
+        <li>
           <strong>Записи про використання.</strong> Час кожної генерації та те, яка AI-модель її
           зробила. Так рахується денний ліміт.
         </li>
@@ -231,7 +247,8 @@ function PrivacyUk() {
       <p>
         Коли ви публікуєте сайт, його може побачити будь-хто, у кого є посилання, без входу в
         акаунт. Ваше ім’я та пошта на ньому не показуються. Щоб прибрати сайт, зніміть його з
-        публікації або видаліть проєкт.
+        публікації або видаліть проєкт. Власник сайту бачить кількість переглядів і відвідувачів,
+        але не бачить, хто саме відкривав сайт.
       </p>
 
       <h3>Як довго ми зберігаємо дані</h3>
@@ -248,7 +265,8 @@ function PrivacyUk() {
       </p>
       <p>
         Заявки видаляються разом із сайтом або акаунтом. Відключити Telegram можна будь-коли в
-        меню акаунта або командою /stop у боті.
+        меню акаунта або командою /stop у боті. Записи про відвідування видаляються разом із
+        сайтом або акаунтом.
       </p>
 
       <h3>Ваші права</h3>

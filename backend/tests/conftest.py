@@ -20,3 +20,14 @@ def temp_photo_store(tmp_path, monkeypatch):
     """Uploaded photos go to a temporary folder, never backend/data."""
     monkeypatch.setattr(user_photos, "_STORE_PATH", tmp_path / "photos.json")
     monkeypatch.setattr(user_photos, "_UPLOADS", tmp_path / "uploads")
+
+
+@pytest.fixture(autouse=True)
+def temp_visit_store(tmp_path, monkeypatch):
+    from app import leads, visits
+
+    monkeypatch.setattr(visits, "_STORE_PATH", tmp_path / "visits.json")
+    monkeypatch.setattr(leads, "_LEADS_PATH", tmp_path / "leads.json")
+    monkeypatch.setattr(leads, "_LINKS_PATH", tmp_path / "telegram.json")
+    visits._sites.clear()
+    visits._last_seen.clear()

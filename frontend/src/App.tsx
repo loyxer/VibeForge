@@ -478,6 +478,7 @@ function Workspace({ session }: { session: Session | null }) {
 
           {html && !loading && !editing && projectId && (
             <SiteActions
+              projectId={projectId}
               publishedUrl={publishedUrl}
               stale={publishedStale}
               busy={publishBusy}

@@ -1,8 +1,12 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { apiFetch } from '../api'
 import { useT } from '../i18n'
 import QrDialog from './QrDialog'
 
+type Visits = { today: number; views_7d: number; visitors_7d: number; total: number }
+
 type Props = {
+  projectId: string
   publishedUrl: string | null
   // The site was edited after it was published: the link shows an older version.
   stale: boolean
@@ -16,6 +20,7 @@ type Props = {
 }
 
 export default function SiteActions({
+  projectId,
   publishedUrl,
   stale,
   busy,
@@ -29,6 +34,16 @@ export default function SiteActions({
   const t = useT()
   const [copied, setCopied] = useState(false)
   const [qrOpen, setQrOpen] = useState(false)
+  const [visits, setVisits] = useState<Visits | null>(null)
+
+  useEffect(() => {
+    setVisits(null)
+    if (!publishedUrl) return
+    apiFetch(`/api/projects/${projectId}/visits`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then(setVisits)
+      .catch(() => {})
+  }, [projectId, publishedUrl])
 
   async function copy() {
     if (!publishedUrl) return
@@ -77,6 +92,18 @@ export default function SiteActions({
           <button type="button" className="btn btn--small" onClick={onUnpublish} disabled={busy}>
             {t('actions.unpublish')}
           </button>
+          {visits && (
+            <p className="site-actions__visits">
+              {visits.total === 0
+                ? t('visits.none')
+                : t('visits.line', {
+                    today: visits.today,
+                    week: visits.views_7d,
+                    people: visits.visitors_7d,
+                    total: visits.total,
+                  })}
+            </p>
+          )}
           {stale && <p className="site-actions__stale">{t('actions.stale')}</p>}
         </div>
       )}

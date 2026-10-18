@@ -81,9 +81,10 @@ def publish(project_id: str, owner: str) -> str:
 
 def _finish_page(html: str, slug: str) -> str:
     """What a published page gets on top of the site itself."""
-    from app import leads  # leads uses this module, so import it late
+    from app import leads, visits  # they use this module, so import them late
 
-    return leads.with_form_capture(with_link_preview(html, public_url(slug)), slug)
+    html = with_link_preview(html, public_url(slug))
+    return visits.with_visit_counter(leads.with_form_capture(html, slug), slug)
 
 
 # What Telegram, Viber, Facebook and the rest show for a shared link: they

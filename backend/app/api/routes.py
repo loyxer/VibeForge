@@ -9,7 +9,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from pydantic import BaseModel
 
-from app import auth, leads, photos, projects, publishing, stats, supabase, usage, user_photos, versions
+from app import auth, leads, photos, projects, publishing, stats, supabase, usage, user_photos, versions, visits
 from app.auth import current_user
 from app.generation.base import GenerationRequest, SiteGenerator, finish_html
 from app.generation.gemini import ModelsBusyError, QuotaExceededError
@@ -214,6 +214,7 @@ def delete_project(project_id: str, user: str = Depends(current_user)):
     publishing.forget_project(project_id)
     versions.forget_project(project_id)
     leads.forget_project(project_id)
+    visits.forget_project(project_id)
     return {"status": "deleted"}
 
 
@@ -266,6 +267,27 @@ async def form_submitted(slug: str, request: Request):
     except leads.TooMany:
         raise HTTPException(status_code=429, detail="Too many submissions — try again later")
     return {"status": "received"}
+
+
+@router.post("/pages/{slug}/seen")
+def page_visited(slug: str, request: Request):
+    """Someone opened a published page (its own one-line script calls this).
+    Public, and quiet: a visitor's page never needs an answer."""
+    ip = (request.headers.get("x-forwarded-for") or (request.client.host if request.client else "")).split(",")[0].strip()
+    try:
+        visits.record(slug, ip, request.headers.get("user-agent", ""))
+    except KeyError:
+        raise HTTPException(status_code=404, detail="This page doesn't exist or was unpublished")
+    return {"status": "counted"}
+
+
+@router.get("/projects/{project_id}/visits")
+def project_visits(project_id: str, user: str = Depends(current_user)):
+    try:
+        projects.get_project(project_id, user)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return visits.summary(project_id, user)
 
 
 @router.get("/telegram")

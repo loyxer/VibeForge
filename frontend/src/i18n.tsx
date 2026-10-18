@@ -134,6 +134,8 @@ const en = {
   'editing.saving': 'Saving…',
   'editing.cancel': 'Cancel',
 
+  'visits.none': '👁 No visits yet — share the link or the QR code.',
+  'visits.line': '👁 Views today: {today} · this week: {week} (people: {people}) · all time: {total}',
   'qr.button': 'QR code',
   'qr.title': 'QR code for your site',
   'qr.alt': 'QR code that opens {url}',
@@ -354,6 +356,8 @@ const uk: Record<Key, string> = {
   'editing.saving': 'Зберігаю…',
   'editing.cancel': 'Скасувати',
 
+  'visits.none': '👁 Ще ніхто не відкривав — поділися посиланням або QR-кодом.',
+  'visits.line': '👁 Переглядів сьогодні: {today} · за тиждень: {week} (людей: {people}) · усього: {total}',
   'qr.button': 'QR-код',
   'qr.title': 'QR-код твого сайту',
   'qr.alt': 'QR-код, що відкриває {url}',

@@ -906,6 +906,14 @@ a.btn {
   word-break: break-all;
 }
 
+.site-actions__visits {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
 .site-actions__stale {
   flex-basis: 100%;
   margin: 0;

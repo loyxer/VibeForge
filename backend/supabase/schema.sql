@@ -131,3 +131,19 @@ create index if not exists form_submissions_user_created_idx
 
 alter table public.form_submissions enable row level security;
 grant select, insert, delete on public.form_submissions to service_role;
+
+-- Visits to published sites (backend/app/visits.py). No IP addresses: only an
+-- anonymous per-day code to tell unique visitors apart. Goes with the site.
+create table if not exists public.site_visits (
+  id bigint generated always as identity primary key,
+  project_id uuid not null references public.projects (id) on delete cascade,
+  user_id uuid not null references auth.users (id) on delete cascade,
+  visitor text not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists site_visits_project_created_idx
+  on public.site_visits (project_id, created_at desc);
+
+alter table public.site_visits enable row level security;
+grant select, insert, delete on public.site_visits to service_role;
