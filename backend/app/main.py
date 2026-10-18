@@ -25,7 +25,7 @@ from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from app.api.routes import public_router, router  # noqa: E402
 
 # How long a stop waits for sites still being made (seconds) — a little under
-# the longest shutdown delay Render allows (300).
+# the longest shutdown delay Render allows (300; not available on the free plan).
 SHUTDOWN_WAIT = 280
 
 
