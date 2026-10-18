@@ -390,3 +390,26 @@ def test_credit_line_goes_when_the_last_stock_photo_does(client, monkeypatch):
     project_id = generate(client, "cafe")["project_id"]
     html = generate(client, "only my own photos", project_id)["html"]
     assert "vf-photo-credits" not in html and "Ann" not in html
+
+
+def test_health_shows_how_many_sites_are_being_made(client):
+    assert client.get("/health").json() == {"status": "ok", "generating": 0}
+    client.post("/api/generate", json={"prompt": "кав'ярня"})
+    assert client.get("/health").json()["generating"] == 0  # the counter comes back down
+
+
+def test_counter_is_up_while_a_site_is_being_made_and_down_after_a_cut():
+    import asyncio
+
+    from app.api import routes
+    from app.generation.base import GenerationRequest
+
+    async def run():
+        body = routes.GenerateBody(prompt="x")
+        events = routes._generation_events(GenerationRequest(prompt="x"), body, "local")
+        await events.__anext__()  # the first piece has arrived
+        during = routes.generating_now()
+        await events.aclose()  # the connection was cut (e.g. a deploy)
+        return during, routes.generating_now()
+
+    assert asyncio.run(run()) == (1, 0)

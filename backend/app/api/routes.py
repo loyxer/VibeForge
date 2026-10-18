@@ -106,7 +106,29 @@ async def generate(body: GenerateBody, user: str = Depends(current_user)):
     )
 
 
+# How many sites are being made right now, shown by /health: Render's free
+# plan stops the old version 90 seconds after a deploy, whatever is running,
+# so look at this before pushing (see README).
+_generating = 0
+
+
+def generating_now() -> int:
+    return _generating
+
+
 async def _generation_events(
+    request: GenerationRequest, body: GenerateBody, user: str
+) -> AsyncIterator[str]:
+    global _generating
+    _generating += 1
+    try:
+        async for line in _run_generation(request, body, user):
+            yield line
+    finally:
+        _generating -= 1
+
+
+async def _run_generation(
     request: GenerationRequest, body: GenerateBody, user: str
 ) -> AsyncIterator[str]:
     model, parts = "unknown", []

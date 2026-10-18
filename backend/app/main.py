@@ -102,4 +102,6 @@ app.include_router(public_router)
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    from app.api import routes
+
+    return {"status": "ok", "generating": routes.generating_now()}

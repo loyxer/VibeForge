@@ -156,7 +156,7 @@ const en = {
   'photos.count.many': '{n} photos',
   'photos.count.other': '{n} photos',
 
-  'error.interrupted': 'The connection was interrupted — please try again.',
+  'error.interrupted': 'The connection was interrupted (maybe the server was being updated) — please try again; this try wasn\'t used.',
   'error.generation': 'Could not build the site',
   'error.restore': 'Could not restore that version.',
   'error.save': 'Could not save',
@@ -461,7 +461,7 @@ const uk: Record<Key, string> = {
   'photos.count.many': '{n} фото',
   'photos.count.other': '{n} фото',
 
-  'error.interrupted': 'З’єднання перервалося — спробуй ще раз.',
+  'error.interrupted': 'З’єднання перервалося (можливо, сервер оновлювався) — спробуй ще раз; ця спроба не витрачена.',
   'error.generation': 'Не вдалося створити сайт',
   'error.restore': 'Не вдалося повернути цю версію.',
   'error.save': 'Не вдалося зберегти',
