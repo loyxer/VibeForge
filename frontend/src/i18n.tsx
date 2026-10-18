@@ -134,6 +134,11 @@ const en = {
   'editing.saving': 'Saving…',
   'editing.cancel': 'Cancel',
 
+  'qr.button': 'QR code',
+  'qr.title': 'QR code for your site',
+  'qr.alt': 'QR code that opens {url}',
+  'qr.hint': 'Print it for tables, a shop window or flyers — a phone camera opens your site straight away.',
+  'qr.download': 'Download PNG',
   'actions.editText': 'Edit text',
   'actions.editTextHint': 'Change any text yourself — free, no AI',
   'actions.history': 'History',
@@ -349,6 +354,11 @@ const uk: Record<Key, string> = {
   'editing.saving': 'Зберігаю…',
   'editing.cancel': 'Скасувати',
 
+  'qr.button': 'QR-код',
+  'qr.title': 'QR-код твого сайту',
+  'qr.alt': 'QR-код, що відкриває {url}',
+  'qr.hint': 'Надрукуй його для столиків, вітрини чи флаєрів — камера телефона одразу відкриє твій сайт.',
+  'qr.download': 'Завантажити PNG',
   'actions.editText': 'Редагувати текст',
   'actions.editTextHint': 'Зміни будь-який текст сам — безкоштовно, без AI',
   'actions.history': 'Історія',

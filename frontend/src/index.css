@@ -294,6 +294,11 @@ body {
   cursor: default;
 }
 
+/* Links styled as buttons (Download PNG, Stats) look like the rest. */
+a.btn {
+  text-decoration: none;
+}
+
 .btn--small {
   min-height: 36px;
   padding: 0.35rem 0.75rem;
@@ -1488,4 +1493,19 @@ body {
   color: var(--sky-text);
   font-size: 0.85rem;
   font-weight: 700;
+}
+
+.qr {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.qr__image {
+  width: min(240px, 100%);
+  aspect-ratio: 1;
+  border: 2px solid var(--line);
+  border-radius: 16px;
+  background: #ffffff;
 }

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useT } from '../i18n'
+import QrDialog from './QrDialog'
 
 type Props = {
   publishedUrl: string | null
@@ -27,6 +28,7 @@ export default function SiteActions({
 }: Props) {
   const t = useT()
   const [copied, setCopied] = useState(false)
+  const [qrOpen, setQrOpen] = useState(false)
 
   async function copy() {
     if (!publishedUrl) return
@@ -69,12 +71,16 @@ export default function SiteActions({
           <button type="button" className="btn btn--small" onClick={copy}>
             {copied ? t('actions.copied') : t('actions.copy')}
           </button>
+          <button type="button" className="btn btn--small" onClick={() => setQrOpen(true)}>
+            {t('qr.button')}
+          </button>
           <button type="button" className="btn btn--small" onClick={onUnpublish} disabled={busy}>
             {t('actions.unpublish')}
           </button>
           {stale && <p className="site-actions__stale">{t('actions.stale')}</p>}
         </div>
       )}
+      {qrOpen && publishedUrl && <QrDialog url={publishedUrl} onClose={() => setQrOpen(false)} />}
     </div>
   )
 }

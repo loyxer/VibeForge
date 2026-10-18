@@ -6,7 +6,7 @@ import { useT } from '../i18n'
 type DialogProps = { onClose: () => void }
 
 // Shared frame: a small modal that closes on Escape or a click outside.
-function Dialog({
+export function Dialog({
   title,
   onClose,
   children,
