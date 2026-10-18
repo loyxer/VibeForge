@@ -120,12 +120,26 @@ export default function Chat({
     },
   }
 
-  function handlePaste(e: React.ClipboardEvent) {
-    const images = Array.from(e.clipboardData.files).filter((f) => f.type.startsWith('image/'))
-    if (!images.length) return // plain text pastes as usual
-    e.preventDefault()
-    if (canAddPhotos) onAddPhotos(images)
+  // Pasting a picture works wherever the cursor is on the page, not only
+  // inside the text box (the listener is on the document, and always calls
+  // the latest version of the handler).
+  const pasteImages = useRef((_files: File[]) => {})
+  pasteImages.current = (files) => {
+    if (canAddPhotos) onAddPhotos(files)
   }
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      const target = e.target as HTMLElement | null
+      // Leave other inputs (rename, feedback…) alone.
+      if (target?.closest('input, textarea:not(#prompt), [contenteditable], .modal')) return
+      const images = Array.from(e.clipboardData?.files ?? []).filter((f) => f.type.startsWith('image/'))
+      if (!images.length) return // plain text pastes as usual
+      e.preventDefault()
+      pasteImages.current(images)
+    }
+    document.addEventListener('paste', onPaste)
+    return () => document.removeEventListener('paste', onPaste)
+  }, [])
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault()
@@ -221,7 +235,6 @@ export default function Chat({
           id="prompt"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          onPaste={handlePaste}
           placeholder={isNewSite ? t('chat.placeholderNew') : t('chat.placeholderEdit')}
           rows={3}
           onKeyDown={(e) => {
