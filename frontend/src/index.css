@@ -1517,3 +1517,27 @@ a.btn {
   border-radius: 16px;
   background: #ffffff;
 }
+
+.dialog__kinds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.dialog__form textarea {
+  min-height: 110px;
+  padding: 0.6rem 0.7rem;
+  border: 2px solid var(--line);
+  border-radius: 12px;
+  background: var(--soft);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+  resize: vertical;
+}
+
+.dialog__form textarea:focus {
+  outline: none;
+  border-color: var(--sky-edge);
+  background: #ffffff;
+}

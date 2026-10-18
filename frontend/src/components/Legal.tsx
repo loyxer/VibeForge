@@ -76,6 +76,11 @@ function PrivacyEn() {
           you as the site owner: we only store and deliver it.
         </li>
         <li>
+          <strong>Messages to support.</strong> If you write to us through “Support / Idea”, we
+          store your message and your email address and forward the message to the VibeForge
+          owner. They are deleted together with your account.
+        </li>
+        <li>
           <strong>Telegram.</strong> If you connect Telegram, we store the ID of your chat with
           the VibeForge bot so we can send submissions there.
         </li>
@@ -193,6 +198,11 @@ function PrivacyUk() {
           надсилають через форми (наприклад, ім’я, телефон, повідомлення). Ми зберігаємо ці
           заявки і, якщо ви підключили Telegram, пересилаємо їх вам. Ці дані належать вам як
           власнику сайту: ми лише зберігаємо й доставляємо їх.
+        </li>
+        <li>
+          <strong>Повідомлення в підтримку.</strong> Якщо ви пишете нам через «Підтримка / Ідея»,
+          ми зберігаємо ваше повідомлення та адресу пошти й пересилаємо повідомлення власнику
+          VibeForge. Вони видаляються разом із вашим акаунтом.
         </li>
         <li>
           <strong>Telegram.</strong> Якщо ви підключаєте Telegram, ми зберігаємо ідентифікатор

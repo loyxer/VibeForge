@@ -147,3 +147,17 @@ create index if not exists site_visits_project_created_idx
 
 alter table public.site_visits enable row level security;
 grant select, insert, delete on public.site_visits to service_role;
+
+-- Support requests and ideas sent by users (backend/app/feedback.py).
+-- Kept so nothing is lost when the owner's Telegram isn't connected.
+create table if not exists public.feedback (
+  id bigint generated always as identity primary key,
+  user_id uuid not null references auth.users (id) on delete cascade,
+  email text not null default '',
+  kind text not null,
+  message text not null,
+  created_at timestamptz not null default now()
+);
+
+alter table public.feedback enable row level security;
+grant select, insert, delete on public.feedback to service_role;

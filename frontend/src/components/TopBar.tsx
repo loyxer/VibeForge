@@ -4,7 +4,7 @@ import { apiFetch, type Usage } from '../api'
 import { supabase } from '../supabase'
 import { Lang, useLang, useT } from '../i18n'
 import Mascot from './Mascot'
-import { ChangePasswordDialog, DeleteAccountDialog } from './AccountDialogs'
+import { ChangePasswordDialog, DeleteAccountDialog, FeedbackDialog } from './AccountDialogs'
 
 type Props = {
   session: Session | null
@@ -81,7 +81,7 @@ function LangSwitch() {
 function AccountMenu({ email, owner }: { email: string; owner: boolean }) {
   const t = useT()
   const [open, setOpen] = useState(false)
-  const [dialog, setDialog] = useState<'password' | 'delete' | null>(null)
+  const [dialog, setDialog] = useState<'password' | 'delete' | 'feedback' | null>(null)
   const box = useRef<HTMLDivElement>(null)
 
   // Close on a click anywhere else or on Escape, like any menu.
@@ -124,6 +124,16 @@ function AccountMenu({ email, owner }: { email: string; owner: boolean }) {
             className="btn btn--small"
             onClick={() => {
               setOpen(false)
+              setDialog('feedback')
+            }}
+          >
+            {t('feedback.title')}
+          </button>
+          <button
+            type="button"
+            className="btn btn--small"
+            onClick={() => {
+              setOpen(false)
               setDialog('password')
             }}
           >
@@ -145,6 +155,7 @@ function AccountMenu({ email, owner }: { email: string; owner: boolean }) {
         </div>
       )}
       {dialog === 'password' && <ChangePasswordDialog onClose={() => setDialog(null)} />}
+      {dialog === 'feedback' && <FeedbackDialog email={email} onClose={() => setDialog(null)} />}
       {dialog === 'delete' && <DeleteAccountDialog onClose={() => setDialog(null)} />}
     </div>
   )

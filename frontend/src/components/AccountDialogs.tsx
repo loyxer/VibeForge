@@ -135,3 +135,84 @@ export function DeleteAccountDialog({ onClose }: DialogProps) {
     </Dialog>
   )
 }
+
+const KINDS = ['idea', 'problem', 'question'] as const
+
+export function FeedbackDialog({ email, onClose }: DialogProps & { email: string }) {
+  const t = useT()
+  const [kind, setKind] = useState<(typeof KINDS)[number]>('idea')
+  const [message, setMessage] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [done, setDone] = useState(false)
+
+  async function submit(e: FormEvent) {
+    e.preventDefault()
+    if (!message.trim()) return
+    setBusy(true)
+    setError(null)
+    try {
+      const res = await apiFetch('/api/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind, message, email }),
+      })
+      if (res.status === 429) setError(t('feedback.tooMany'))
+      else if (!res.ok) setError(t('feedback.failed'))
+      else setDone(true)
+    } catch {
+      setError(t('feedback.failed'))
+    }
+    setBusy(false)
+  }
+
+  return (
+    <Dialog title={t('feedback.title')} onClose={onClose}>
+      {done ? (
+        <>
+          <p className="dialog__text">{t('feedback.sent')}</p>
+          <div className="dialog__actions">
+            <button type="button" className="btn btn--blue" onClick={onClose}>
+              {t('gallery.close')}
+            </button>
+          </div>
+        </>
+      ) : (
+        <form className="dialog__form" onSubmit={submit}>
+          <p className="dialog__text">{t('feedback.intro')}</p>
+          <div className="dialog__kinds" role="group">
+            {KINDS.map((k) => (
+              <button
+                key={k}
+                type="button"
+                aria-pressed={kind === k}
+                className={`chip${kind === k ? ' chip--active' : ''}`}
+                onClick={() => setKind(k)}
+              >
+                {t(`feedback.${k}`)}
+              </button>
+            ))}
+          </div>
+          <textarea
+            autoFocus
+            rows={5}
+            maxLength={2000}
+            placeholder={t('feedback.placeholder')}
+            aria-label={t('feedback.placeholder')}
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+          />
+          {error && <p className="dialog__error">{error}</p>}
+          <div className="dialog__actions">
+            <button type="button" className="btn" onClick={onClose}>
+              {t('account.cancel')}
+            </button>
+            <button type="submit" className="btn btn--blue" disabled={busy || !message.trim()}>
+              {t('feedback.send')}
+            </button>
+          </div>
+        </form>
+      )}
+    </Dialog>
+  )
+}

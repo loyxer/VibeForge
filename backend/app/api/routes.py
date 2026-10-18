@@ -9,7 +9,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from pydantic import BaseModel
 
-from app import auth, leads, photos, projects, publishing, stats, supabase, usage, user_photos, versions, visits
+from app import auth, feedback, leads, photos, projects, publishing, stats, supabase, usage, user_photos, versions, visits
 from app.auth import current_user
 from app.generation.base import GenerationRequest, SiteGenerator, finish_html
 from app.generation.gemini import ModelsBusyError, QuotaExceededError
@@ -288,6 +288,24 @@ def project_visits(project_id: str, user: str = Depends(current_user)):
     except KeyError:
         raise HTTPException(status_code=404, detail="Project not found")
     return visits.summary(project_id, user)
+
+
+class FeedbackBody(BaseModel):
+    kind: str
+    message: str
+    email: str = ""
+
+
+@router.post("/feedback")
+def send_feedback(body: FeedbackBody, user: str = Depends(current_user)):
+    """A support request or an idea for the owner."""
+    try:
+        feedback.submit(user, body.email, body.kind, body.message)
+    except feedback.Invalid as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except feedback.TooMany:
+        raise HTTPException(status_code=429, detail="Too many messages — please try again later")
+    return {"sent": True}
 
 
 @router.get("/telegram")
