@@ -3,6 +3,7 @@ import type { Session } from '@supabase/supabase-js'
 import Chat, { ChatMessage, Progress } from './components/Chat'
 import Preview, { Device, PreviewHandle } from './components/Preview'
 import Gallery, { GallerySelection } from './components/Gallery'
+import LogoDialog from './components/LogoDialog'
 import SignIn from './components/SignIn'
 import SiteActions from './components/SiteActions'
 import VersionHistory, { VersionSummary } from './components/VersionHistory'
@@ -122,6 +123,7 @@ function Workspace({ session }: { session: Session | null }) {
   const [editPages, setEditPages] = useState<SitePages | null>(null)
   const [editPhotos, setEditPhotos] = useState<{ id: string; url: string }[]>([])
   const [galleryOpen, setGalleryOpen] = useState(false)
+  const [logoOpen, setLogoOpen] = useState(false)
   const [projectName, setProjectName] = useState<string | null>(null)
   const [usage, setUsage] = useState<Usage | null>(null)
   // The person's own photos waiting to go out with the next message.
@@ -412,6 +414,28 @@ function Workspace({ session }: { session: Session | null }) {
     }
   }
 
+  // A logo picked in the logo dialog goes into the site's header (no AI).
+  async function handleApplyLogo(svg: string) {
+    if (!projectId) return
+    const res = await apiFetch(`/api/projects/${projectId}/logo`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ svg }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error(data.detail ? t.server(data.detail) : t('error.server', { status: res.status }))
+    setHtml(data.html)
+    setViewing(null)
+    setMessages((m) => [
+      ...m,
+      { role: 'user', text: data.history[data.history.length - 1] },
+      { role: 'assistant', key: 'reply.saved' },
+    ])
+    setHistoryVersion((v) => v + 1)
+    setPublishedStale(publishedUrl !== null)
+    setLogoOpen(false)
+  }
+
   async function changePublished(method: 'POST' | 'DELETE') {
     if (!projectId) return
     setPublishBusy(true)
@@ -564,6 +588,7 @@ function Workspace({ session }: { session: Session | null }) {
               onToggleHistory={() => setHistoryOpen((open) => !open)}
               bilingual={/\sdata-l="/.test(html ?? '')}
               onAddLanguage={() => handleSend(t('lang.addPrompt'), true)}
+              onLogo={() => setLogoOpen(true)}
               multipage={/\sdata-page="/.test(html ?? '')}
               onAddPages={() => handleSend(t('pages.addPrompt'), false, true)}
               onEditText={() => {
@@ -590,6 +615,13 @@ function Workspace({ session }: { session: Session | null }) {
         </div>
       </main>
 
+      {logoOpen && projectId && (
+        <LogoDialog
+          defaultName={projectName ?? ''}
+          onApply={handleApplyLogo}
+          onClose={() => setLogoOpen(false)}
+        />
+      )}
       {galleryOpen && (
         <Gallery
           currentId={projectId}

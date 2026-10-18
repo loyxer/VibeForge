@@ -17,6 +17,7 @@ type Props = {
   bilingual: boolean
   multipage: boolean
   onAddPages: () => void
+  onLogo: () => void
   onAddLanguage: () => void
   onEditText: () => void
   onDownload: () => void
@@ -35,6 +36,7 @@ export default function SiteActions({
   onAddLanguage,
   multipage,
   onAddPages,
+  onLogo,
   onEditText,
   onDownload,
   onPublish,
@@ -96,6 +98,9 @@ export default function SiteActions({
             {t('actions.addPages')}
           </button>
         )}
+        <button type="button" className="btn" onClick={onLogo} title={t('logo.buttonHint')}>
+          {t('logo.button')}
+        </button>
         <button type="button" className="btn" onClick={onDownload}>
           {t('actions.download')}
         </button>

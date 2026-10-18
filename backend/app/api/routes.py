@@ -10,7 +10,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from pydantic import BaseModel
 
-from app import auth, chat_sites, feedback, leads, photos, projects, publishing, reviews, stats, supabase, usage, user_photos, versions, visits
+from app import auth, chat_sites, feedback, leads, logos, photos, projects, publishing, reviews, stats, supabase, usage, user_photos, versions, visits
 from app.auth import current_user
 from app.generation.base import GenerationRequest, SiteGenerator, finish_html
 from app.generation.gemini import ModelsBusyError, QuotaExceededError
@@ -452,6 +452,50 @@ def save_text_edit(project_id: str, body: TextEditBody, user: str = Depends(curr
     except KeyError:
         raise HTTPException(status_code=404, detail="Project not found")
     user_photos.mark_sent(user, body.photo_ids, project_id)
+    versions.add(project_id, user, prompt, html)
+    return projects.get_project(project_id, user)
+
+
+class LogoBody(BaseModel):
+    name: str
+    brief: str = ""  # what the business does, style and colors wanted
+    dark: bool = False  # the logo goes on a dark header
+
+
+class LogoSaveBody(BaseModel):
+    svg: str
+
+
+@router.post("/logos")
+def make_logos(body: LogoBody, user: str = Depends(current_user)):
+    """Three logo concepts, drawn as SVG by the free AI model — a small
+    request, so it doesn't count towards the daily generations."""
+    try:
+        return {"logos": logos.make(body.name, body.brief, body.dark, user)}
+    except logos.TooMany as e:
+        raise HTTPException(status_code=429, detail=str(e))
+    except logos.LogoError as e:
+        if str(e).startswith("Write"):
+            raise HTTPException(status_code=400, detail=str(e))
+        logger.warning("Logos failed: %s", e)
+        raise HTTPException(
+            status_code=503, detail="The AI is busy right now — try again in a minute"
+        )
+
+
+@router.post("/projects/{project_id}/logo")
+def save_logo(project_id: str, body: LogoSaveBody, user: str = Depends(current_user)):
+    """Put a chosen logo into the site's header — a new version, no AI."""
+    try:
+        html = projects.get_project(project_id, user)["html"]
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Project not found")
+    try:
+        html = logos.with_logo(html, body.svg)
+    except logos.LogoError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    prompt = "🎨 Added logo"
+    projects.update_project(project_id, user, html, prompt)
     versions.add(project_id, user, prompt, html)
     return projects.get_project(project_id, user)
 
