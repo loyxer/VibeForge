@@ -159,6 +159,13 @@ Stock photos of the business's own premises (its interior, its storefront)
 are photos of different places, so use at most one of each; two different
 "café interiors" make it look like two different cafés. Use details for
 the rest: the coffee, the food, the products, hands at work, the city.
+On an existing page, the tags with data-photo or data-photo-bg are these
+stock photos (other photographers' work, from Unsplash); photos whose URL
+contains /site-photos/ or /api/uploads/ are the person's own. When asked to
+keep only their own photos (or to remove stock / other authors' photos),
+remove every data-photo image, and from every data-photo-bg element remove
+that attribute and its background-image (keep the element and its text),
+then rearrange the layout so nothing looks empty.
 When editing a page, keep every existing photo (tags that already have a
 src or background-image) exactly as it is unless asked to change it, and
 keep any element with class "vf-photo-credits" and the <style id="vf-safety">
