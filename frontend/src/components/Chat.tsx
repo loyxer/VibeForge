@@ -42,6 +42,8 @@ type Props = {
   onStyleChange: (style: string | null) => void
   bilingual: boolean
   onBilingualChange: (value: boolean) => void
+  multipage: boolean
+  onMultipageChange: (value: boolean) => void
   onNewSite: () => void
   onSend: (prompt: string) => void
   // The person's own photos to send with the next message.
@@ -62,6 +64,8 @@ export default function Chat({
   onStyleChange,
   bilingual,
   onBilingualChange,
+  multipage,
+  onMultipageChange,
   onNewSite,
   onSend,
   tray,
@@ -234,6 +238,15 @@ export default function Chat({
               onClick={() => onBilingualChange(!bilingual)}
             >
               {t('chat.bilingual')}
+            </button>
+            <button
+              type="button"
+              className={`chip chip--wide${multipage ? ' chip--active' : ''}`}
+              aria-pressed={multipage}
+              title={t('chat.multipageHint')}
+              onClick={() => onMultipageChange(!multipage)}
+            >
+              {t('chat.multipage')}
             </button>
           </>
         )}

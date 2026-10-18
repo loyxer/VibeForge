@@ -15,6 +15,8 @@ type Props = {
   onToggleHistory: () => void
   // The site already has two languages.
   bilingual: boolean
+  multipage: boolean
+  onAddPages: () => void
   onAddLanguage: () => void
   onEditText: () => void
   onDownload: () => void
@@ -31,6 +33,8 @@ export default function SiteActions({
   onToggleHistory,
   bilingual,
   onAddLanguage,
+  multipage,
+  onAddPages,
   onEditText,
   onDownload,
   onPublish,
@@ -85,6 +89,11 @@ export default function SiteActions({
         {!bilingual && (
           <button type="button" className="btn" onClick={onAddLanguage} title={t('actions.addLanguageHint')}>
             {t('actions.addLanguage')}
+          </button>
+        )}
+        {!multipage && (
+          <button type="button" className="btn" onClick={onAddPages} title={t('actions.addPagesHint')}>
+            {t('actions.addPages')}
           </button>
         )}
         <button type="button" className="btn" onClick={onDownload}>

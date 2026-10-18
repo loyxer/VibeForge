@@ -38,6 +38,22 @@ _TEMPLATE = """<!doctype html>
 </html>"""
 
 
+_PAGES_TEMPLATE = """<!doctype html>
+<html lang="uk">
+<head><meta charset="utf-8"><title>Mock site</title>
+<style>body{{font-family:system-ui,sans-serif;margin:0}}header,footer{{padding:16px;background:#222;color:#fff}}
+nav a{{color:#fff;margin-right:16px}}nav a[aria-current="page"]{{text-decoration:underline}}section{{padding:48px 16px}}</style></head>
+<body>
+<header><nav><a href="#/home" data-page-link="home">Головна</a><a href="#/about" data-page-link="about">Про нас</a><a href="#/contact" data-page-link="contact">Контакти</a></nav></header>
+<main>
+<section data-page="home"><h1>Головна</h1><p>{prompt}</p><a href="#/contact">Написати нам</a></section>
+<section data-page="about"><h1>Про нас</h1><p id="team">Наша команда.</p></section>
+<section data-page="contact"><h1>Контакти</h1><p>+380 00 000 00 00</p></section>
+</main>
+<footer>© 2026</footer>
+</body></html>"""
+
+
 class MockGenerator(SiteGenerator):
     """Streams the placeholder page in small pieces, like a real model would,
     so the live preview can be tried out without spending any quota."""
@@ -50,7 +66,8 @@ class MockGenerator(SiteGenerator):
             f'<img src="{html_lib.escape(p.url)}" alt="" style="width:30%;margin:4px">'
             for p in request.photos
         )
-        page = _TEMPLATE.format(prompt=html_lib.escape(request.prompt), photos=photos)
+        template = _PAGES_TEMPLATE if request.pages else _TEMPLATE
+        page = template.format(prompt=html_lib.escape(request.prompt), photos=photos)
         yield ("model", "mock")
         step = max(len(page) // 10, 1)
         for i in range(0, len(page), step):

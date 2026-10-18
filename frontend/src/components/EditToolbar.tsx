@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { isKey, useT } from '../i18n'
 import { shrink, uploadPhoto } from '../photoUpload'
-import type { EditorCommand, Selection, SiteLanguages } from '../textEditor'
+import type { EditorCommand, Selection, SiteLanguages, SitePages } from '../textEditor'
 
 type Props = {
   selection: Selection | null
   languages: SiteLanguages | null
+  pages: SitePages | null
   projectId: string | null
   send: (command: EditorCommand) => void
   // A photo the person just uploaded to put on the page.
@@ -16,7 +17,7 @@ type Props = {
 const UNSAFE_LINK = /^\s*(javascript|data|vbscript):/i
 
 /** Tools for the element just clicked in the preview: colors, photo, link. */
-export default function EditToolbar({ selection, languages, projectId, send, onUploaded }: Props) {
+export default function EditToolbar({ selection, languages, pages, projectId, send, onUploaded }: Props) {
   const t = useT()
   const fileInput = useRef<HTMLInputElement>(null)
   const [href, setHref] = useState('')
@@ -68,16 +69,35 @@ export default function EditToolbar({ selection, languages, projectId, send, onU
     </span>
   )
 
+  const pageSwitch = pages && (
+    <span className="edit-tools__langs" role="group" aria-label={t('edit.sitePage')}>
+      {t('edit.sitePage')}
+      {pages.all.map((id) => (
+        <button
+          key={id}
+          type="button"
+          className={`btn btn--small${pages.current === id ? ' btn--active' : ''}`}
+          aria-pressed={pages.current === id}
+          onClick={() => send({ cmd: 'page', value: id })}
+        >
+          {pages.labels[id] ?? id}
+        </button>
+      ))}
+    </span>
+  )
+
   if (!selection)
     return (
       <div className="edit-tools edit-tools--empty">
         <span>{t('edit.pick')}</span>
+        {pageSwitch}
         {languageSwitch}
       </div>
     )
 
   return (
     <div className="edit-tools">
+      {pageSwitch}
       {languageSwitch}
       <span className="edit-tools__what" title={selection.label}>
         {t('edit.selected', { label: selection.label })}

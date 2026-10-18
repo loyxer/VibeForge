@@ -21,7 +21,7 @@ from collections.abc import AsyncIterator
 from google import genai
 from google.genai import types
 
-from . import base, languages
+from . import base, languages, pages
 from .base import Event, GenerationRequest, SiteGenerator
 
 logger = logging.getLogger("vibeforge")
@@ -226,6 +226,8 @@ class GeminiGenerator(SiteGenerator):
             parts.append(f"Existing HTML:\n{request.previous_html}")
         if languages.wants_bilingual(request.bilingual, request.prompt, request.previous_html):
             parts.append(languages.BILINGUAL_PROMPT)
+        if pages.wants_pages(request.pages, request.prompt, request.previous_html):
+            parts.append(pages.PAGES_PROMPT)
         if request.photos:
             parts.append(_own_photos_note(request.photos))
         parts.append(f"Instruction: {request.prompt}")

@@ -49,6 +49,26 @@ const EDITOR_SCRIPT = `
   }
   reportLangs();
 
+  // A several-page site: the same, so the person can edit any page.
+  var pageIds = [];
+  document.querySelectorAll('[data-page]').forEach(function (e) {
+    var p = e.getAttribute('data-page');
+    if (pageIds.indexOf(p) < 0) pageIds.push(p);
+  });
+  var originalView = document.documentElement.getAttribute('data-view');
+  function reportPages() {
+    if (pageIds.length > 1) {
+      var labels = {};
+      pageIds.forEach(function (p) {
+        var a = document.querySelector('[data-page-link="' + p + '"]');
+        var text = a && (a.textContent || '').trim().replace(/\\s+/g, ' ');
+        if (text) labels[p] = text.slice(0, 24);
+      });
+      parent.postMessage({ type: 'vf-pages', pages: { all: pageIds, labels: labels, current: document.documentElement.getAttribute('data-view') } }, '*');
+    }
+  }
+  reportPages();
+
   function report() {
     var el = selected, link = el && el.closest('a');
     var cs = el && getComputedStyle(el);
@@ -96,7 +116,11 @@ const EDITOR_SCRIPT = `
   window.addEventListener('submit', function (e) { e.preventDefault(); e.stopPropagation(); }, true);
 
   function apply(cmd, value) {
-    if (cmd === 'ping') return reportLangs();
+    if (cmd === 'ping') { reportPages(); return reportLangs(); }
+    if (cmd === 'page') {
+      if (pageIds.indexOf(value) >= 0) { document.documentElement.setAttribute('data-view', value); reportPages(); }
+      return;
+    }
     if (cmd === 'lang') {
       if (langs.indexOf(value) >= 0) { document.documentElement.setAttribute('data-lang', value); reportLangs(); }
       return;
@@ -152,6 +176,7 @@ const EDITOR_SCRIPT = `
     doc.querySelectorAll('[contenteditable]').forEach(function (el) { el.removeAttribute('contenteditable'); });
     // Looking at the other language mustn't change which one the site starts in.
     if (originalLang) doc.setAttribute('data-lang', originalLang);
+    if (originalView) doc.setAttribute('data-view', originalView);
     doc.querySelectorAll('[data-vf-sel],[data-vf-photo]').forEach(function (el) {
       el.removeAttribute('data-vf-sel'); el.removeAttribute('data-vf-photo');
     });
@@ -218,8 +243,11 @@ export type Selection = {
 }
 
 export type EditorCommand =
-  | { cmd: 'color' | 'bg' | 'href' | 'photo' | 'lang'; value: string }
+  | { cmd: 'color' | 'bg' | 'href' | 'photo' | 'lang' | 'page'; value: string }
   | { cmd: 'up' | 'undo' }
 
 /** A site with two languages: all of them, and the one shown right now. */
 export type SiteLanguages = { all: string[]; current: string }
+
+/** A site with several pages: all their ids, and the one shown right now. */
+export type SitePages = { all: string[]; labels: Record<string, string>; current: string }

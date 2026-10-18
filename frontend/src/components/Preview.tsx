@@ -1,6 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { useT } from '../i18n'
-import { EditorCommand, requestEditedHtml, Selection, SiteLanguages, withEditor } from '../textEditor'
+import { EditorCommand, requestEditedHtml, Selection, SiteLanguages, SitePages, withEditor } from '../textEditor'
 
 type Props = {
   html: string | null
@@ -13,6 +13,7 @@ type Props = {
   onSelect: (selection: Selection | null) => void
   // While editing: the languages of a two-language site, and the one shown.
   onLanguages: (languages: SiteLanguages | null) => void
+  onPages: (pages: SitePages | null) => void
   // Shown at full width, or at a phone's width to check the mobile layout.
   device: Device
 }
@@ -31,7 +32,7 @@ export type PreviewHandle = {
 // visible frame instead would flash white on every update while the site
 // streams in.
 const Preview = forwardRef<PreviewHandle, Props>(function Preview(
-  { html, building, liveCode, editing, device, onSelect, onLanguages },
+  { html, building, liveCode, editing, device, onSelect, onLanguages, onPages },
   ref,
 ) {
   const t = useT()
@@ -52,12 +53,13 @@ const Preview = forwardRef<PreviewHandle, Props>(function Preview(
       if (event.source !== editFrame.current?.contentWindow) return
       if (event.data?.type === 'vf-select') onSelect(event.data.info)
       if (event.data?.type === 'vf-langs') onLanguages(event.data.languages)
+      if (event.data?.type === 'vf-pages') onPages(event.data.pages)
     }
     window.addEventListener('message', onMessage)
     // The page may have reported its languages before we were listening.
     editFrame.current?.contentWindow?.postMessage({ type: 'vf-cmd', cmd: 'ping' }, '*')
     return () => window.removeEventListener('message', onMessage)
-  }, [editing, onSelect, onLanguages])
+  }, [editing, onSelect, onLanguages, onPages])
 
   const [slots, setSlots] = useState<[string | null, string | null]>([null, null])
   const [active, setActive] = useState(0)

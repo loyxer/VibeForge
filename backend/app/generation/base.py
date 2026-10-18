@@ -18,7 +18,7 @@ from datetime import date, datetime
 from typing import Literal, Optional
 from zoneinfo import ZoneInfo
 
-from . import languages
+from . import languages, pages
 from app.user_photos import AttachedPhoto
 
 Event = tuple[Literal["status", "model", "text", "reset"], str]
@@ -33,6 +33,8 @@ class GenerationRequest:
     photos: list[AttachedPhoto] = field(default_factory=list)
     # Ukrainian + English with a switcher (see languages.py).
     bilingual: bool = False
+    # Several pages in one file (see pages.py).
+    pages: bool = False
 
 
 @dataclass
@@ -68,7 +70,7 @@ def finish_html(text: str) -> str:
     html = extract_html(text)
     if not html:
         raise RuntimeError("The AI returned an empty response — try rephrasing the request.")
-    return languages.with_languages(with_safety_css(current_copyright_year(html)))
+    return languages.with_languages(pages.with_pages(with_safety_css(current_copyright_year(html))))
 
 
 # A safety net for what the AI most often gets wrong on phones: one element

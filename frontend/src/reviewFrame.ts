@@ -64,7 +64,7 @@ const REVIEW_SCRIPT = `
     marks.forEach(function (m) {
       var el = null;
       try { el = document.querySelector(m.selector); } catch (_) {}
-      if (!el) return;
+      if (!el || !el.getClientRects().length) return; // gone, or on a page that isn't shown
       var r = el.getBoundingClientRect();
       var b = document.createElement('button');
       b.type = 'button';
@@ -96,7 +96,12 @@ const REVIEW_SCRIPT = `
     } else if (d.type === 'vf-focus') {
       var el = null;
       try { el = document.querySelector(d.selector); } catch (_) {}
-      if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      if (el) {
+        // On another page of a several-page site: open that page first.
+        var pg = el.closest('[data-page]');
+        if (pg && window.__vfShowPage) window.__vfShowPage(pg.getAttribute('data-page'), false);
+        el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      }
     }
   });
   parent.postMessage({ type: 'vf-ready' }, '*');

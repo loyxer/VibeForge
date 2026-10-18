@@ -12,7 +12,7 @@ import Stats from './components/Stats'
 import EditToolbar from './components/EditToolbar'
 import Review from './components/Review'
 import ReviewPanel from './components/ReviewPanel'
-import type { Selection, SiteLanguages } from './textEditor'
+import type { Selection, SiteLanguages, SitePages } from './textEditor'
 import { apiFetch, readEvents, Usage } from './api'
 import { discardPhoto, MAX_PHOTOS_PER_SITE, shrink, TrayPhoto, uploadPhoto } from './photoUpload'
 import { supabase } from './supabase'
@@ -103,6 +103,8 @@ function Workspace({ session }: { session: Session | null }) {
   const [style, setStyle] = useState<string | null>(null)
   // Ukrainian + English with a switcher; asked for before a new site is made.
   const [bilingual, setBilingual] = useState(false)
+  // Several pages in one site, with a menu; asked for before a new site is made.
+  const [multipage, setMultipage] = useState(false)
   const [publishedUrl, setPublishedUrl] = useState<string | null>(null)
   const [publishedStale, setPublishedStale] = useState(false)
   const [publishBusy, setPublishBusy] = useState(false)
@@ -117,6 +119,7 @@ function Workspace({ session }: { session: Session | null }) {
   // What was clicked in the preview while editing, and the photos uploaded for it.
   const [selection, setSelection] = useState<Selection | null>(null)
   const [editLangs, setEditLangs] = useState<SiteLanguages | null>(null)
+  const [editPages, setEditPages] = useState<SitePages | null>(null)
   const [editPhotos, setEditPhotos] = useState<{ id: string; url: string }[]>([])
   const [galleryOpen, setGalleryOpen] = useState(false)
   const [projectName, setProjectName] = useState<string | null>(null)
@@ -188,7 +191,7 @@ function Workspace({ session }: { session: Session | null }) {
     setTray([])
   }
 
-  async function handleSend(prompt: string, makeBilingual = false) {
+  async function handleSend(prompt: string, makeBilingual = false, makePages = false) {
     setViewing(null) // edits always build on the latest version
     const photoIds = tray.flatMap((p) => (p.status === 'ready' && p.id ? [p.id] : []))
     setMessages((m) => [...m, { role: 'user', text: prompt, photos: photoIds.length }])
@@ -207,6 +210,7 @@ function Workspace({ session }: { session: Session | null }) {
             style: id ? null : style,
             photo_ids: photoIds,
             bilingual: id ? makeBilingual : bilingual,
+            pages: id ? makePages : multipage,
           }),
         })
 
@@ -352,6 +356,7 @@ function Workspace({ session }: { session: Session | null }) {
     setEditing(false)
     setSelection(null)
     setEditLangs(null)
+    setEditPages(null)
     setEditPhotos([])
   }
 
@@ -446,6 +451,8 @@ function Workspace({ session }: { session: Session | null }) {
           onStyleChange={setStyle}
           bilingual={bilingual}
           onBilingualChange={setBilingual}
+          multipage={multipage}
+          onMultipageChange={setMultipage}
           onNewSite={handleNewSite}
           onSend={handleSend}
           tray={tray}
@@ -484,6 +491,7 @@ function Workspace({ session }: { session: Session | null }) {
             <EditToolbar
               selection={selection}
               languages={editLangs}
+              pages={editPages}
               projectId={projectId}
               send={(command) => preview.current?.sendCommand(command)}
               onUploaded={(photo) => setEditPhotos((all) => [...all, photo])}
@@ -519,6 +527,7 @@ function Workspace({ session }: { session: Session | null }) {
               editing={editing}
               onSelect={setSelection}
               onLanguages={setEditLangs}
+              onPages={setEditPages}
               device={device}
             />
           </div>
@@ -533,6 +542,8 @@ function Workspace({ session }: { session: Session | null }) {
               onToggleHistory={() => setHistoryOpen((open) => !open)}
               bilingual={/\sdata-l="/.test(html ?? '')}
               onAddLanguage={() => handleSend(t('lang.addPrompt'), true)}
+              multipage={/\sdata-page="/.test(html ?? '')}
+              onAddPages={() => handleSend(t('pages.addPrompt'), false, true)}
               onEditText={() => {
                 setViewing(null) // edits always apply to the current version
                 setEditing(true)
