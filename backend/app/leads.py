@@ -179,8 +179,13 @@ def handle_update(update: dict[str, Any]) -> None:
         if owner is None:
             send(chat_id, HELP_TEXT)
             return
+        # One chat belongs to one account, or the bot wouldn't know whose
+        # sites it is making: the latest connection wins.
+        others = [o for o in _owners_with_chat(chat_id) if o != owner]
+        for other in others:
+            disconnect(other)
         _save_link(owner, {"chat_id": chat_id, "code": None, "code_expires_at": None})
-        send(chat_id, CONNECTED_TEXT)
+        send(chat_id, CONNECTED_TEXT + (MOVED_TEXT if others else ""))
     elif text.startswith("/stop"):
         for owner in _owners_with_chat(chat_id):
             disconnect(owner)
@@ -195,6 +200,9 @@ CONNECTED_TEXT = (
     "• ти можеш просто написати мені, який сайт потрібен, — я його створю. "
     "Наприклад: «Сайт для кав'ярні у Львові».\n"
     "Усі команди — /help. Відключити — /stop або кнопка «Відключити» в меню акаунта."
+)
+MOVED_TEXT = (
+    "\n\nЦей чат був підключений до іншого акаунта VibeForge — тепер він підключений лише до цього."
 )
 STOPPED_TEXT = "Заявки більше не надходитимуть сюди. Підключити знову можна в меню акаунта VibeForge."
 HELP_TEXT = (

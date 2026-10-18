@@ -284,3 +284,17 @@ def test_disconnecting_forgets_the_site(persistent, chat):
     chat.clear()
     say(persistent, "сайт для перукарні")
     assert len(persistent.get("/api/projects").json()["items"]) == 2
+
+
+def test_one_chat_belongs_to_one_account(client, bot):
+    leads._save_link("old-account", {"chat_id": 777})
+    connect(client)  # the local test user connects the same chat
+    assert leads.owners_of_chat(777) == ["local"]
+    assert "лише до цього" in bot[-1][1]
+
+
+def test_done_message_links_to_the_site(persistent, chat, monkeypatch):
+    monkeypatch.setenv("FRONTEND_ORIGIN", "https://app.example")
+    say(persistent, "сайт для кав'ярні")
+    project_id = persistent.get("/api/projects").json()["items"][0]["id"]
+    assert f"https://app.example/?open={project_id}" in chat[-1][1]

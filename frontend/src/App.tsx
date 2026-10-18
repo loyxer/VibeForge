@@ -149,6 +149,28 @@ function Workspace({ session }: { session: Session | null }) {
       .catch(() => setUsage(null))
   }, [])
 
+  // A link from the Telegram bot (/?open=<site id>) goes straight to that site.
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get('open')
+    if (!id) return
+    window.history.replaceState(null, '', window.location.pathname)
+    apiFetch(`/api/projects/${encodeURIComponent(id)}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((p) => {
+        if (p) {
+          handleGallerySelect({
+            projectId: id,
+            html: p.html,
+            history: p.history,
+            name: p.name ?? null,
+            publishedUrl: p.published_url ?? null,
+          })
+        }
+      })
+      .catch(() => {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // Errors we raise ourselves carry a dictionary key; the server's come as
   // English text. Chat shows either in the current language.
   const fail = (err: unknown, fallback: 'error.generation' | 'error.save' | 'error.generic') =>

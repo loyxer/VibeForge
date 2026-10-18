@@ -115,7 +115,7 @@ def finished(job: Job, project_id: str, remaining: Optional[int]) -> None:
     project = projects.get_project(project_id, job.owner)
     name = project.get("name") or job.prompt
     name = name if len(name) <= 40 else name[:37] + "…"
-    text = DONE_TEXT.format(name=name, app=publishing.app_url())
+    text = DONE_TEXT.format(name=name, link=publishing.app_link(project_id))
     if remaining is not None:
         text += f"\nЗалишилось спроб сьогодні: {remaining} з {usage.limit_for(job.owner)}."
     leads.send(job.chat_id, text)
@@ -151,7 +151,7 @@ LIMIT_TEXT = "Ліміт на сьогодні вичерпано ({limit} на 
 NO_SITE_TEXT = "Спершу створи сайт: просто напиши, який він має бути."
 DONE_TEXT = (
     "✅ Готово: «{name}».\n\n"
-    "Подивитись і поправити: {app} → «Мої сайти».\n"
+    "Подивитись і поправити (відкрий під тим самим акаунтом VibeForge): {link}\n"
     "Опублікувати й отримати посилання: /publish\n"
     "Змінити щось — просто напиши, що саме. Новий сайт — /new."
 )

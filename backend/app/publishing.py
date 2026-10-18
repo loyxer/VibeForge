@@ -43,9 +43,10 @@ def public_url(slug: str) -> str:
     return base + slug
 
 
-def app_url() -> str:
-    """Where people open VibeForge itself."""
-    return os.getenv("FRONTEND_ORIGIN", "").rstrip("/") or "VibeForge"
+def app_link(project_id: str) -> str:
+    """A link that opens the site itself in VibeForge (for the Telegram bot)."""
+    origin = os.getenv("FRONTEND_ORIGIN", "").rstrip("/")
+    return f"{origin}/?open={project_id}" if origin else "VibeForge"
 
 
 def publish(project_id: str, owner: str) -> str:
