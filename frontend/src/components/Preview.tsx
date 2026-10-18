@@ -9,7 +9,11 @@ type Props = {
   liveCode: string
   // Text editing by hand: the page is shown with its text editable.
   editing: boolean
+  // Shown at full width, or at a phone's width to check the mobile layout.
+  device: Device
 }
+
+export type Device = 'desktop' | 'phone'
 
 export type PreviewHandle = {
   /** While editing: the page with the user's text changes, ready to save. */
@@ -21,7 +25,7 @@ export type PreviewHandle = {
 // visible frame instead would flash white on every update while the site
 // streams in.
 const Preview = forwardRef<PreviewHandle, Props>(function Preview(
-  { html, building, liveCode, editing },
+  { html, building, liveCode, editing, device },
   ref,
 ) {
   const t = useT()
@@ -73,7 +77,7 @@ const Preview = forwardRef<PreviewHandle, Props>(function Preview(
 
   if (editing && html) {
     return (
-      <div className="preview">
+      <div className={`preview${device === 'phone' ? ' preview--phone' : ''}`}>
         <iframe
           ref={editFrame}
           className="preview__frame"
@@ -86,7 +90,7 @@ const Preview = forwardRef<PreviewHandle, Props>(function Preview(
   }
 
   return (
-    <div className="preview">
+    <div className={`preview${device === 'phone' ? ' preview--phone' : ''}`}>
       {[0, 1].map((slot) =>
         slots[slot] !== null ? (
           <iframe

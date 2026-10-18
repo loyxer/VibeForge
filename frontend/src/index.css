@@ -131,12 +131,15 @@ body {
   background: rgba(255, 255, 255, 0.45);
 }
 
-.lang {
+/* Two-way switches: interface language, preview size. */
+.lang,
+.device {
   display: flex;
   gap: 0.35rem;
 }
 
-.lang__option {
+.lang__option,
+.device__option {
   min-height: 36px;
   padding: 0.3rem 0.65rem;
   border: 2px solid var(--line);
@@ -150,7 +153,8 @@ body {
   cursor: pointer;
 }
 
-.lang__option--active {
+.lang__option--active,
+.device__option--active {
   background: var(--sky);
   border-color: var(--sky-edge);
   box-shadow: 0 3px 0 var(--sky-edge);
@@ -724,8 +728,12 @@ body {
   font-weight: 900;
 }
 
+/* The title pushes the badge and the size switch to the right. */
+.preview-card__bar > span:first-child {
+  margin-right: auto;
+}
+
 .preview-card__badge {
-  margin-left: auto;
   padding: 0.25rem 0.75rem;
   border-radius: 999px;
   background: var(--green-bg);
@@ -758,6 +766,19 @@ body {
 
 .preview__frame--hidden {
   visibility: hidden;
+}
+
+/* Phone size: the page laid out at a phone's width, so its own mobile
+   styles kick in — framed like a phone, centred in the preview. */
+.preview--phone .preview__frame {
+  top: 0.6rem;
+  bottom: 0.6rem;
+  left: 50%;
+  width: min(390px, calc(100% - 1.2rem));
+  height: calc(100% - 1.2rem); /* an iframe doesn't stretch between top and bottom */
+  border: 2px solid var(--line-strong);
+  border-radius: 22px;
+  transform: translateX(-50%);
 }
 
 .preview__placeholder {

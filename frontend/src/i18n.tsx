@@ -73,6 +73,9 @@ const en = {
   'style.playful': 'Playful',
 
   'preview.title': 'Preview',
+  'preview.device': 'Preview size',
+  'preview.desktop': '🖥 Computer',
+  'preview.phone': '📱 Phone',
   'preview.published': 'Published',
   'preview.unpublishedChanges': 'Changes not published',
   'preview.empty': 'Your site will appear here',
@@ -244,6 +247,9 @@ const uk: Record<Key, string> = {
   'style.playful': 'Грайливий',
 
   'preview.title': 'Перегляд',
+  'preview.device': 'Розмір перегляду',
+  'preview.desktop': '🖥 Комп’ютер',
+  'preview.phone': '📱 Телефон',
   'preview.published': 'Опубліковано',
   'preview.unpublishedChanges': 'Є неопубліковані зміни',
   'preview.empty': 'Тут з’явиться твій сайт',

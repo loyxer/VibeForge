@@ -1,7 +1,7 @@
 import { ReactNode, useEffect, useRef, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import Chat, { ChatMessage, Progress } from './components/Chat'
-import Preview, { PreviewHandle } from './components/Preview'
+import Preview, { Device, PreviewHandle } from './components/Preview'
 import Gallery, { GallerySelection } from './components/Gallery'
 import SignIn from './components/SignIn'
 import SiteActions from './components/SiteActions'
@@ -96,6 +96,7 @@ function Workspace({ session }: { session: Session | null }) {
   const [usage, setUsage] = useState<Usage | null>(null)
   // The person's own photos waiting to go out with the next message.
   const [tray, setTray] = useState<TrayPhoto[]>([])
+  const [device, setDevice] = useState<Device>('desktop')
 
   useEffect(() => {
     apiFetch('/api/usage')
@@ -429,6 +430,19 @@ function Workspace({ session }: { session: Session | null }) {
                   {publishedStale ? t('preview.unpublishedChanges') : t('preview.published')}
                 </span>
               )}
+              <div className="device" role="group" aria-label={t('preview.device')}>
+                {(['desktop', 'phone'] as const).map((d) => (
+                  <button
+                    key={d}
+                    type="button"
+                    aria-pressed={device === d}
+                    className={`device__option${device === d ? ' device__option--active' : ''}`}
+                    onClick={() => setDevice(d)}
+                  >
+                    {d === 'desktop' ? t('preview.desktop') : t('preview.phone')}
+                  </button>
+                ))}
+              </div>
             </div>
             <Preview
               ref={preview}
@@ -436,6 +450,7 @@ function Workspace({ session }: { session: Session | null }) {
               building={loading}
               liveCode={liveCode}
               editing={editing}
+              device={device}
             />
           </div>
 
