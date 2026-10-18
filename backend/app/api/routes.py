@@ -9,7 +9,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from pydantic import BaseModel
 
-from app import auth, feedback, leads, photos, projects, publishing, stats, supabase, usage, user_photos, versions, visits
+from app import auth, feedback, leads, photos, projects, publishing, reviews, stats, supabase, usage, user_photos, versions, visits
 from app.auth import current_user
 from app.generation.base import GenerationRequest, SiteGenerator, finish_html
 from app.generation.gemini import ModelsBusyError, QuotaExceededError
@@ -217,6 +217,7 @@ def delete_project(project_id: str, user: str = Depends(current_user)):
     versions.forget_project(project_id)
     leads.forget_project(project_id)
     visits.forget_project(project_id)
+    reviews.forget_project(project_id)
     return {"status": "deleted"}
 
 
@@ -246,6 +247,7 @@ def delete_account(user: str = Depends(current_user)):
         for project_id in projects.delete_all(user):
             publishing.forget_project(project_id)
             versions.forget_project(project_id)
+            reviews.forget_project(project_id)
     return {"status": "deleted"}
 
 
@@ -487,3 +489,100 @@ def published_page(slug: str):
     if not publishing.is_slug_indexable(slug):
         headers["X-Robots-Tag"] = "noindex"
     return HTMLResponse(html, headers=headers)
+
+
+# ----------------------------------------------- a link for the client
+
+
+def _review_url(token: str) -> str:
+    base = os.getenv("FRONTEND_ORIGIN", "").rstrip("/") or "http://localhost:5173"
+    return f"{base}/r/{token}"
+
+
+def _review_state(project_id: str, user: str) -> dict:
+    token = reviews.token_of(project_id, user)
+    return {
+        "url": _review_url(token) if token else None,
+        "comments": reviews.comments(project_id, user),
+    }
+
+
+@router.get("/projects/{project_id}/review")
+def get_review(project_id: str, user: str = Depends(current_user)):
+    try:
+        return _review_state(project_id, user)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+
+@router.post("/projects/{project_id}/review")
+def start_review(project_id: str, user: str = Depends(current_user)):
+    """Switch on the client's link (the same link if it's already on)."""
+    try:
+        reviews.enable(project_id, user)
+        return _review_state(project_id, user)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+
+@router.delete("/projects/{project_id}/review")
+def stop_review(project_id: str, user: str = Depends(current_user)):
+    """Switch the link off; comments already left stay."""
+    try:
+        reviews.disable(project_id, user)
+        return _review_state(project_id, user)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+
+class ResolveBody(BaseModel):
+    resolved: bool
+
+
+@router.patch("/projects/{project_id}/review/comments/{comment_id}")
+def resolve_comment(project_id: str, comment_id: int, body: ResolveBody, user: str = Depends(current_user)):
+    try:
+        reviews.set_resolved(project_id, user, comment_id, body.resolved)
+        return _review_state(project_id, user)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Comment not found")
+
+
+@router.delete("/projects/{project_id}/review/comments/{comment_id}")
+def remove_comment(project_id: str, comment_id: int, user: str = Depends(current_user)):
+    try:
+        reviews.delete_comment(project_id, user, comment_id)
+        return _review_state(project_id, user)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+
+@router.get("/reviews/{token}")
+def review_page(token: str):
+    """What the client's page shows. Public: the token is the key."""
+    try:
+        return reviews.view(token)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="This link doesn't exist or was switched off")
+
+
+class CommentBody(BaseModel):
+    author: str = ""
+    text: str
+    selector: str = ""
+    label: str = ""
+
+
+@router.post("/reviews/{token}/comments")
+def add_review_comment(token: str, body: CommentBody, request: Request):
+    ip = (request.headers.get("x-forwarded-for") or (request.client.host if request.client else "")).split(",")[0].strip()
+    try:
+        return reviews.add_comment(
+            token, body.author, body.text, body.selector, body.label, f"{ip}|{request.headers.get('user-agent', '')}"
+        )
+    except KeyError:
+        raise HTTPException(status_code=404, detail="This link doesn't exist or was switched off")
+    except reviews.Invalid as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except reviews.TooMany:
+        raise HTTPException(status_code=429, detail="Too many comments — please try again later")

@@ -167,3 +167,34 @@ grant select, insert, delete on public.feedback to service_role;
 -- /s/<slug> sets the robots header from it, and /sitemap.xml lists these.
 alter table public.published_sites add column if not exists indexable boolean not null default false;
 grant select (indexable, published_at) on public.published_sites to anon;
+
+-- A link for a client to look at a site and leave comments
+-- (backend/app/reviews.py). One link per site, switched off by deleting it.
+-- Only the backend touches these tables: the link's token is the key.
+create table if not exists public.reviews (
+  project_id uuid primary key references public.projects (id) on delete cascade,
+  user_id uuid not null references auth.users (id) on delete cascade,
+  token text not null unique,
+  created_at timestamptz not null default now()
+);
+
+alter table public.reviews enable row level security;
+grant select, insert, delete on public.reviews to service_role;
+
+create table if not exists public.review_comments (
+  id bigint generated always as identity primary key,
+  project_id uuid not null references public.projects (id) on delete cascade,
+  user_id uuid not null references auth.users (id) on delete cascade,
+  author text not null default '',
+  text text not null,
+  selector text not null default '',
+  label text not null default '',
+  resolved boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists review_comments_project_idx
+  on public.review_comments (project_id, id);
+
+alter table public.review_comments enable row level security;
+grant select, insert, update, delete on public.review_comments to service_role;

@@ -76,6 +76,15 @@ function PrivacyEn() {
           you as the site owner: we only store and deliver it.
         </li>
         <li>
+          <strong>Client review comments.</strong> If you switch on the “Client review” link for
+          a site, anyone who has that link can see the current version of the site and leave
+          comments on it: the comment text, a name if they choose to type one, which part of
+          the page they pointed at, and the time. We store these comments for you, as the site
+          owner, and, if you connected Telegram, forward them to you. We don't ask clients for
+          an account or an email address. Anyone with the link can read the comments already
+          left; you can switch the link off at any time and it stops working.
+        </li>
+        <li>
           <strong>Messages to support.</strong> If you write to us through “Support / Idea”, we
           store your message and your email address and forward the message to the VibeForge
           owner. They are deleted together with your account.
@@ -149,7 +158,7 @@ function PrivacyEn() {
         you added but never sent are deleted automatically after a day.
       </p>
       <p>
-        Submissions are deleted together with their site or account. You can disconnect
+        Submissions and client comments are deleted together with their site or account. You can disconnect
         Telegram at any time in the account menu or with the /stop command in the bot. Visit
         records are deleted together with their site or account.
       </p>
@@ -198,6 +207,15 @@ function PrivacyUk() {
           надсилають через форми (наприклад, ім’я, телефон, повідомлення). Ми зберігаємо ці
           заявки і, якщо ви підключили Telegram, пересилаємо їх вам. Ці дані належать вам як
           власнику сайту: ми лише зберігаємо й доставляємо їх.
+        </li>
+        <li>
+          <strong>Коментарі клієнтів до сайту.</strong> Якщо ви вмикаєте для сайту посилання
+          «Перегляд клієнтом», кожен, хто має це посилання, бачить поточну версію сайту й може
+          залишати коментарі: текст коментаря, ім’я (якщо людина його введе), на яку частину
+          сторінки вона вказала, і час. Ми зберігаємо ці коментарі для вас, як власника сайту,
+          і, якщо ви підключили Telegram, пересилаємо їх вам. Ми не просимо клієнтів ні про
+          акаунт, ні про адресу пошти. Раніше залишені коментарі може прочитати кожен, хто має
+          посилання; ви можете вимкнути посилання будь-коли, і воно перестане працювати.
         </li>
         <li>
           <strong>Повідомлення в підтримку.</strong> Якщо ви пишете нам через «Підтримка / Ідея»,
@@ -274,7 +292,7 @@ function PrivacyUk() {
         які ви додали, але так і не надіслали, видаляються автоматично через добу.
       </p>
       <p>
-        Заявки видаляються разом із сайтом або акаунтом. Відключити Telegram можна будь-коли в
+        Заявки й коментарі клієнтів видаляються разом із сайтом або акаунтом. Відключити Telegram можна будь-коли в
         меню акаунта або командою /stop у боті. Записи про відвідування видаляються разом із
         сайтом або акаунтом.
       </p>

@@ -10,6 +10,8 @@ import { Privacy, Terms } from './components/Legal'
 import TopBar from './components/TopBar'
 import Stats from './components/Stats'
 import EditToolbar from './components/EditToolbar'
+import Review from './components/Review'
+import ReviewPanel from './components/ReviewPanel'
 import type { Selection, SiteLanguages } from './textEditor'
 import { apiFetch, readEvents, Usage } from './api'
 import { discardPhoto, MAX_PHOTOS_PER_SITE, shrink, TrayPhoto, uploadPhoto } from './photoUpload'
@@ -36,6 +38,15 @@ export default function App() {
   // No router: the only other pages are the two static legal ones.
   if (path === '/privacy' || path === '/terms') {
     return <Shell session={session}>{path === '/privacy' ? <Privacy /> : <Terms />}</Shell>
+  }
+  // A client opens the review link without an account.
+  const review = /^\/r\/([\w-]{1,40})\/?$/.exec(path)
+  if (review) {
+    return (
+      <Shell session={session} workspace>
+        <Review token={review[1]} />
+      </Shell>
+    )
   }
   if (!authReady) return <Shell session={null} />
   if (supabase && !session) {
@@ -531,6 +542,7 @@ function Workspace({ session }: { session: Session | null }) {
               onUnpublish={() => changePublished('DELETE')}
             />
           )}
+          {html && !loading && !editing && projectId && <ReviewPanel projectId={projectId} />}
           {publishedUrl && !loading && telegram?.available && !telegram.connected && /<form[\s>]/i.test(html ?? '') && (
             <p className="telegram-hint">{t('telegram.hint')}</p>
           )}

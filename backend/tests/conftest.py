@@ -31,3 +31,11 @@ def temp_visit_store(tmp_path, monkeypatch):
     monkeypatch.setattr(leads, "_LINKS_PATH", tmp_path / "telegram.json")
     visits._sites.clear()
     visits._last_seen.clear()
+
+
+@pytest.fixture(autouse=True)
+def temp_review_store(tmp_path, monkeypatch):
+    from app import reviews
+
+    monkeypatch.setattr(reviews, "_PATH", tmp_path / "reviews.json")
+    reviews._recent.clear()
