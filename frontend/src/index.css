@@ -1560,3 +1560,29 @@ a.btn {
   text-align: center;
   pointer-events: none;
 }
+
+.site-actions__seo {
+  display: flex;
+  flex-basis: 100%;
+  align-items: flex-start;
+  gap: 0.55rem;
+  font-size: 0.9rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.site-actions__seo input {
+  width: 18px;
+  height: 18px;
+  margin-top: 0.1rem;
+  accent-color: var(--blue, #1479b8);
+}
+
+.site-actions__seo small {
+  display: block;
+  margin-top: 0.15rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1.35;
+}

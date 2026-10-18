@@ -1,0 +1,4 @@
+User-agent: *
+Disallow: /api/
+
+Sitemap: https://vibe-forge-swart.vercel.app/sitemap.xml

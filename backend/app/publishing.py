@@ -74,7 +74,13 @@ def publish(project_id: str, owner: str) -> str:
         slug = next((s for s, p in data.items() if p["project_id"] == project_id), None)
         slug = slug or _new_slug()
         html = _finish_page(html, slug)
-        data[slug] = {"project_id": project_id, "owner": owner, "html": html, "published_at": now}
+        data[slug] = {
+            **data.get(slug, {}),  # keeps the owner's choice about search engines
+            "project_id": project_id,
+            "owner": owner,
+            "html": html,
+            "published_at": now,
+        }
         _write(data)
         return slug
 
@@ -83,8 +89,45 @@ def _finish_page(html: str, slug: str) -> str:
     """What a published page gets on top of the site itself."""
     from app import leads, visits  # they use this module, so import them late
 
+    html = with_seo_basics(html, public_url(slug))
     html = with_link_preview(html, public_url(slug))
     return visits.with_visit_counter(leads.with_form_capture(html, slug), slug)
+
+
+def with_seo_basics(html: str, url: str) -> str:
+    """What a search engine wants to find: the language of the page, a
+    title, a description and the page's own address. Only fills in what the
+    AI left out (the canonical address is always ours)."""
+    head_end = re.search(r"</head>", html, re.I)
+    if not head_end:
+        return html
+    extra = ""
+    if not re.search(r"<title[^>]*>\s*\S", html, re.I):
+        title = _text_of(r"<h1[^>]*>(.*?)</h1>", html)
+        if title:
+            html = re.sub(r"<title[^>]*>\s*</title>", "", html, flags=re.I)
+            extra += f"\n<title>{html_lib.escape(title)}</title>"
+    if not _meta_description(html):
+        description = _first_paragraph(html)
+        if description:
+            extra += f'\n<meta name="description" content="{html_lib.escape(description, quote=True)}">'
+    html = re.sub(r'\s*<link\s[^>]*rel="canonical"[^>]*>', "", html, flags=re.I)
+    extra += f'\n<link rel="canonical" href="{html_lib.escape(url, quote=True)}">'
+    head_end = re.search(r"</head>", html, re.I)
+    html = html[: head_end.start()] + extra + "\n" + html[head_end.start() :]
+    return _with_lang(html)
+
+
+def _with_lang(html: str) -> str:
+    tag = re.search(r"<html\b[^>]*>", html, re.I)
+    if not tag or re.search(r"\slang=", tag.group(0), re.I):
+        return html
+    text = re.sub(r"<(script|style)\b.*?</\1>|<[^>]+>", " ", html, flags=re.I | re.S)
+    cyrillic = len(re.findall(r"[а-яіїєґ]", text, re.I))
+    latin = len(re.findall(r"[a-z]", text, re.I))
+    lang = "uk" if cyrillic > latin else "en"
+    new = tag.group(0)[:-1] + f' lang="{lang}">'
+    return html[: tag.start()] + new + html[tag.end() :]
 
 
 # What Telegram, Viber, Facebook and the rest show for a shared link: they
@@ -169,6 +212,46 @@ def unpublish(project_id: str, owner: str) -> None:
     with _lock:
         data = _read()
         _write({s: p for s, p in data.items() if p["project_id"] != project_id})
+
+
+def set_indexable(project_id: str, owner: str, value: bool) -> bool:
+    """Let search engines list the published page (or not). Returns False if
+    the project isn't published."""
+    slug = slug_for(project_id, owner)
+    if slug is None:
+        return False
+    if config := supabase.config():
+        with _rest(config) as client:
+            res = client.patch(
+                "/published_sites", params={"slug": f"eq.{slug}"}, json={"indexable": value}
+            )
+        res.raise_for_status()
+        return True
+    with _lock:
+        data = _read()
+        data[slug]["indexable"] = value
+        _write(data)
+    return True
+
+
+def is_indexable(project_id: str, owner: str) -> bool:
+    slug = slug_for(project_id, owner)
+    if slug is None:
+        return False
+    return is_slug_indexable(slug)
+
+
+def is_slug_indexable(slug: str) -> bool:
+    if not SLUG_PATTERN.match(slug):
+        return False
+    if config := supabase.config():
+        with _rest(config) as client:
+            res = client.get("/published_sites", params={"slug": f"eq.{slug}", "select": "indexable"})
+        res.raise_for_status()
+        rows = res.json()
+        return bool(rows and rows[0].get("indexable"))
+    with _lock:
+        return bool(_read().get(slug, {}).get("indexable"))
 
 
 def slug_for(project_id: str, owner: str) -> Optional[str]:

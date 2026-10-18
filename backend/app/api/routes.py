@@ -441,6 +441,31 @@ def unpublish_project(project_id: str, user: str = Depends(current_user)):
     return {"published_url": None}
 
 
+class SeoBody(BaseModel):
+    indexable: bool
+
+
+@router.get("/projects/{project_id}/seo")
+def get_seo(project_id: str, user: str = Depends(current_user)):
+    """Whether search engines may list the published page."""
+    try:
+        projects.get_project(project_id, user)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return {"indexable": publishing.is_indexable(project_id, user)}
+
+
+@router.put("/projects/{project_id}/seo")
+def set_seo(project_id: str, body: SeoBody, user: str = Depends(current_user)):
+    try:
+        projects.get_project(project_id, user)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Project not found")
+    if not publishing.set_indexable(project_id, user, body.indexable):
+        raise HTTPException(status_code=409, detail="Publish the site first")
+    return {"indexable": body.indexable}
+
+
 @public_router.get("/s/{slug}", response_class=HTMLResponse)
 def published_page(slug: str):
     """A published site, for anyone. Production serves these from Vercel
@@ -448,4 +473,7 @@ def published_page(slug: str):
     html = publishing.page(slug)
     if html is None:
         raise HTTPException(status_code=404, detail="This page doesn't exist or was unpublished")
-    return HTMLResponse(html, headers={"Content-Security-Policy": publishing.SANDBOX_CSP})
+    headers = {"Content-Security-Policy": publishing.SANDBOX_CSP}
+    if not publishing.is_slug_indexable(slug):
+        headers["X-Robots-Tag"] = "noindex"
+    return HTMLResponse(html, headers=headers)

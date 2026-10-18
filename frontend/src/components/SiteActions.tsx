@@ -35,6 +35,8 @@ export default function SiteActions({
   const [copied, setCopied] = useState(false)
   const [qrOpen, setQrOpen] = useState(false)
   const [visits, setVisits] = useState<Visits | null>(null)
+  // May search engines (Google) list the page? Off until the owner says so.
+  const [indexable, setIndexable] = useState(false)
 
   useEffect(() => {
     setVisits(null)
@@ -43,7 +45,21 @@ export default function SiteActions({
       .then((res) => (res.ok ? res.json() : null))
       .then(setVisits)
       .catch(() => {})
+    apiFetch(`/api/projects/${projectId}/seo`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((s) => setIndexable(Boolean(s?.indexable)))
+      .catch(() => {})
   }, [projectId, publishedUrl])
+
+  async function toggleIndexable(value: boolean) {
+    setIndexable(value)
+    const res = await apiFetch(`/api/projects/${projectId}/seo`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ indexable: value }),
+    }).catch(() => null)
+    if (!res?.ok) setIndexable(!value)
+  }
 
   async function copy() {
     if (!publishedUrl) return
@@ -104,6 +120,13 @@ export default function SiteActions({
                   })}
             </p>
           )}
+          <label className="site-actions__seo">
+            <input type="checkbox" checked={indexable} onChange={(e) => toggleIndexable(e.target.checked)} />
+            <span>
+              {t('seo.label')}
+              <small>{indexable ? t('seo.on') : t('seo.off')}</small>
+            </span>
+          </label>
           {stale && <p className="site-actions__stale">{t('actions.stale')}</p>}
         </div>
       )}

@@ -18,11 +18,11 @@ export async function GET(request: Request): Promise<Response> {
   if (!/^[a-z0-9]{8}$/.test(slug) || !SUPABASE_URL || !SUPABASE_KEY) return notFound()
 
   const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/published_sites?slug=eq.${slug}&select=html`,
+    `${SUPABASE_URL}/rest/v1/published_sites?slug=eq.${slug}&select=html,indexable`,
     { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } },
   )
   if (!res.ok) return new Response('Something went wrong — try again later.', { status: 502 })
-  const rows = (await res.json()) as { html: string }[]
+  const rows = (await res.json()) as { html: string; indexable: boolean }[]
   if (rows.length === 0) return notFound()
 
   return new Response(rows[0].html, {
@@ -32,8 +32,8 @@ export async function GET(request: Request): Promise<Response> {
       // Re-publishing shows up within a minute without hitting the
       // database on every visit.
       'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
-      // Generated pages shouldn't end up in search results under our name.
-      'X-Robots-Tag': 'noindex',
+      // Search engines may list a page only if its owner switched that on.
+      ...(rows[0].indexable ? {} : { 'X-Robots-Tag': 'noindex' }),
     },
   })
 }

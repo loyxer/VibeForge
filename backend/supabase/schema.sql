@@ -161,3 +161,9 @@ create table if not exists public.feedback (
 
 alter table public.feedback enable row level security;
 grant select, insert, delete on public.feedback to service_role;
+
+-- Search engines may list a published site only if its owner switched that on
+-- (default: no). Public, like the page itself: the Vercel function that serves
+-- /s/<slug> sets the robots header from it, and /sitemap.xml lists these.
+alter table public.published_sites add column if not exists indexable boolean not null default false;
+grant select (indexable, published_at) on public.published_sites to anon;
