@@ -9,6 +9,8 @@ import VersionHistory, { VersionSummary } from './components/VersionHistory'
 import { Privacy, Terms } from './components/Legal'
 import TopBar from './components/TopBar'
 import Stats from './components/Stats'
+import EditToolbar from './components/EditToolbar'
+import type { Selection } from './textEditor'
 import { apiFetch, readEvents, Usage } from './api'
 import { discardPhoto, MAX_PHOTOS_PER_SITE, shrink, TrayPhoto, uploadPhoto } from './photoUpload'
 import { supabase } from './supabase'
@@ -99,6 +101,9 @@ function Workspace({ session }: { session: Session | null }) {
   const [editing, setEditing] = useState(false)
   const [savingEdit, setSavingEdit] = useState(false)
   const preview = useRef<PreviewHandle>(null)
+  // What was clicked in the preview while editing, and the photos uploaded for it.
+  const [selection, setSelection] = useState<Selection | null>(null)
+  const [editPhotos, setEditPhotos] = useState<{ id: string; url: string }[]>([])
   const [galleryOpen, setGalleryOpen] = useState(false)
   const [projectName, setProjectName] = useState<string | null>(null)
   const [usage, setUsage] = useState<Usage | null>(null)
@@ -271,7 +276,7 @@ function Workspace({ session }: { session: Session | null }) {
     setPublishedUrl(selection.publishedUrl)
     setPublishedStale(false)
     setViewing(null)
-    setEditing(false)
+    stopEditing()
     setHistoryOpen(false)
     setMessages(
       selection.history.flatMap((prompt) => [
@@ -291,7 +296,7 @@ function Workspace({ session }: { session: Session | null }) {
     setPublishedStale(false)
     setViewing(null)
     setHistoryOpen(false)
-    setEditing(false)
+    stopEditing()
   }
 
   async function handleViewVersion(version: VersionSummary) {
@@ -323,15 +328,23 @@ function Workspace({ session }: { session: Session | null }) {
     setPublishedStale(publishedUrl !== null)
   }
 
+  function stopEditing() {
+    setEditing(false)
+    setSelection(null)
+    setEditPhotos([])
+  }
+
   async function handleSaveEdit() {
     if (!projectId || !preview.current) return
     setSavingEdit(true)
     try {
       const edited = await preview.current.getEditedHtml()
+      // Only photos that ended up on the page (not ones replaced again).
+      const photoIds = editPhotos.filter((p) => edited.includes(p.url)).map((p) => p.id)
       const res = await apiFetch(`/api/projects/${projectId}/text-edit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ html: edited }),
+        body: JSON.stringify({ html: edited, photo_ids: photoIds }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.detail ?? t('error.server', { status: res.status }))
@@ -341,7 +354,7 @@ function Workspace({ session }: { session: Session | null }) {
         { role: 'user', text: data.history[data.history.length - 1] },
         { role: 'assistant', key: 'reply.saved' },
       ])
-      setEditing(false)
+      stopEditing()
       setHistoryVersion((v) => v + 1)
       setPublishedStale(publishedUrl !== null)
     } catch (err) {
@@ -438,12 +451,20 @@ function Workspace({ session }: { session: Session | null }) {
               <button type="button" className="btn btn--primary" onClick={handleSaveEdit} disabled={savingEdit}>
                 {savingEdit ? t('editing.saving') : t('editing.save')}
               </button>
-              <button type="button" className="btn" onClick={() => setEditing(false)} disabled={savingEdit}>
+              <button type="button" className="btn" onClick={stopEditing} disabled={savingEdit}>
                 {t('editing.cancel')}
               </button>
             </div>
           )}
 
+          {editing && (
+            <EditToolbar
+              selection={selection}
+              projectId={projectId}
+              send={(command) => preview.current?.sendCommand(command)}
+              onUploaded={(photo) => setEditPhotos((all) => [...all, photo])}
+            />
+          )}
           <div className="preview-card card">
             <div className="preview-card__bar">
               <span>{t('preview.title')}</span>
@@ -472,6 +493,7 @@ function Workspace({ session }: { session: Session | null }) {
               building={loading}
               liveCode={liveCode}
               editing={editing}
+              onSelect={setSelection}
               device={device}
             />
           </div>

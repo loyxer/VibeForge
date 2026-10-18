@@ -78,6 +78,11 @@ def fill(html: str) -> str:
     return _with_credits(html)
 
 
+def refresh_credits(html: str) -> str:
+    """Rebuild the credits line after photos were swapped by hand."""
+    return _with_credits(html)
+
+
 def _already_filled(tag: str, is_bg: bool) -> bool:
     if is_bg:
         return "background-image" in tag

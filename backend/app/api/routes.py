@@ -375,6 +375,8 @@ def uploaded_photo(path: str):
 
 class TextEditBody(BaseModel):
     html: str
+    # Own photos the person swapped in while editing (already uploaded).
+    photo_ids: list[str] = []
 
 
 # Hand edits are whole pages too; anything near this size isn't one.
@@ -383,16 +385,22 @@ _MAX_EDIT_BYTES = 1_000_000
 
 @router.post("/projects/{project_id}/text-edit")
 def save_text_edit(project_id: str, body: TextEditBody, user: str = Depends(current_user)):
-    """Save text the user changed by hand in the preview — a new version,
-    no AI involved, so it doesn't count towards the daily limit."""
+    """Save what the user changed by hand in the preview (text, colors,
+    photos, links) — a new version, no AI involved, so it doesn't count
+    towards the daily limit."""
     if len(body.html.encode()) > _MAX_EDIT_BYTES or "<" not in body.html:
         raise HTTPException(status_code=400, detail="That doesn't look like this site's page")
-    prompt = "✎ Edited text by hand"
+    if len(body.photo_ids) > user_photos.MAX_PER_SITE:
+        raise HTTPException(status_code=400, detail="Too many photos")
+    prompt = "✎ Edited by hand"
+    # A stock photo swapped for the person's own no longer needs its credit.
+    html = photos.refresh_credits(body.html) if "vf-photo-credits" in body.html else body.html
     try:
-        projects.update_project(project_id, user, body.html, prompt)
+        projects.update_project(project_id, user, html, prompt)
     except KeyError:
         raise HTTPException(status_code=404, detail="Project not found")
-    versions.add(project_id, user, prompt, body.html)
+    user_photos.mark_sent(user, body.photo_ids, project_id)
+    versions.add(project_id, user, prompt, html)
     return projects.get_project(project_id, user)
 
 

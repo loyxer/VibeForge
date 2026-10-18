@@ -317,11 +317,23 @@ def test_text_edit_saves_a_free_new_version(client, monkeypatch):
 
     state = client.post(f"/api/projects/{project_id}/text-edit", json={"html": edited}).json()
     assert state["html"] == edited
-    assert state["history"][-1] == "✎ Edited text by hand"
+    assert state["history"][-1] == "✎ Edited by hand"
     assert client.get(f"/api/projects/{project_id}").json()["html"] == edited
     items = client.get(f"/api/projects/{project_id}/versions").json()["items"]
     assert [v["number"] for v in items] == [2, 1]
     assert client.get("/api/usage").json()["remaining_today"] == 4  # only the generation counted
+
+
+def test_hand_edit_drops_the_credit_line_when_no_stock_photo_is_left(client):
+    project_id = generate(client, "a bakery")["project_id"]
+    edited = (
+        "<!doctype html><html><body><img src='/api/uploads/x.webp'>"
+        '<div class="vf-photo-credits" style="x">Photos by <a href="u">Ann</a> on Unsplash</div>'
+        "</body></html>"
+    )
+    state = client.post(f"/api/projects/{project_id}/text-edit", json={"html": edited}).json()
+    assert "vf-photo-credits" not in state["html"]
+    assert "/api/uploads/x.webp" in state["html"]
 
 
 def test_text_edit_rejects_junk_and_other_peoples_projects(client):

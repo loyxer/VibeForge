@@ -1,6 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { useT } from '../i18n'
-import { requestEditedHtml, withEditor } from '../textEditor'
+import { EditorCommand, requestEditedHtml, Selection, withEditor } from '../textEditor'
 
 type Props = {
   html: string | null
@@ -9,6 +9,8 @@ type Props = {
   liveCode: string
   // Text editing by hand: the page is shown with its text editable.
   editing: boolean
+  // While editing: the element just clicked (null = none yet).
+  onSelect: (selection: Selection | null) => void
   // Shown at full width, or at a phone's width to check the mobile layout.
   device: Device
 }
@@ -18,6 +20,8 @@ export type Device = 'desktop' | 'phone'
 export type PreviewHandle = {
   /** While editing: the page with the user's text changes, ready to save. */
   getEditedHtml: () => Promise<string>
+  /** While editing: change the clicked element (color, photo, link…). */
+  sendCommand: (command: EditorCommand) => void
 }
 
 // Double-buffered: a new version loads in a hidden frame and is swapped in
@@ -25,7 +29,7 @@ export type PreviewHandle = {
 // visible frame instead would flash white on every update while the site
 // streams in.
 const Preview = forwardRef<PreviewHandle, Props>(function Preview(
-  { html, building, liveCode, editing, device },
+  { html, building, liveCode, editing, device, onSelect },
   ref,
 ) {
   const t = useT()
@@ -35,7 +39,20 @@ const Preview = forwardRef<PreviewHandle, Props>(function Preview(
       editFrame.current
         ? requestEditedHtml(editFrame.current)
         : Promise.reject(new Error('Not editing')),
+    sendCommand: (command) =>
+      editFrame.current?.contentWindow?.postMessage({ type: 'vf-cmd', ...command }, '*'),
   }))
+
+  // What the editing page reports about the element the person clicked.
+  useEffect(() => {
+    if (!editing) return
+    function onMessage(event: MessageEvent) {
+      if (event.source !== editFrame.current?.contentWindow || event.data?.type !== 'vf-select') return
+      onSelect(event.data.info)
+    }
+    window.addEventListener('message', onMessage)
+    return () => window.removeEventListener('message', onMessage)
+  }, [editing, onSelect])
 
   const [slots, setSlots] = useState<[string | null, string | null]>([null, null])
   const [active, setActive] = useState(0)
