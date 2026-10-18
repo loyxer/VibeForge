@@ -11,7 +11,7 @@ const SUPABASE_KEY = process.env.VITE_SUPABASE_PUBLISHABLE_KEY
 // a unique origin and can't touch anything else on this domain — above all
 // the VibeForge app's sign-in session. Keep in sync with SANDBOX_CSP in
 // backend/app/publishing.py.
-const SANDBOX_CSP = 'sandbox allow-scripts allow-forms allow-popups allow-modals'
+const SANDBOX_CSP = 'sandbox allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals'
 
 export async function GET(request: Request): Promise<Response> {
   const slug = new URL(request.url).searchParams.get('slug') ?? ''

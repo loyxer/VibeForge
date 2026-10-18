@@ -29,7 +29,9 @@ _SLUG_ALPHABET = string.ascii_lowercase + string.digits
 # Generated pages are written by an AI, so they're served in a sandbox:
 # a unique origin that can't read the cookies or storage of anything else
 # on the domain (above all the VibeForge app and its sign-in session).
-SANDBOX_CSP = "sandbox allow-scripts allow-forms allow-popups allow-modals"
+# Links that open in a new tab leave the sandbox, so a site's Facebook or
+# Google Maps link (or our own badge) opens as a normal page.
+SANDBOX_CSP = "sandbox allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals"
 
 
 def public_url(slug: str) -> str:
@@ -91,7 +93,39 @@ def _finish_page(html: str, slug: str) -> str:
 
     html = with_seo_basics(html, public_url(slug))
     html = with_link_preview(html, public_url(slug))
+    html = with_badge(html)
     return visits.with_visit_counter(leads.with_form_capture(html, slug), slug)
+
+
+# The little "Made with VibeForge" label in the corner of every published
+# site. Free sites carry it; a paid plan would leave it out (there are no
+# plans yet, so every site gets it).
+_BADGE = re.compile(r'\s*<a id="vf-badge".*?</a>', re.S)
+_BADGE_TEXT = {"uk": "Зроблено у VibeForge", "en": "Made with VibeForge"}
+_BADGE_STYLE = (
+    "position:fixed!important;right:12px!important;bottom:12px!important;z-index:2147483647!important;"
+    "display:inline-flex!important;align-items:center!important;gap:6px!important;padding:6px 12px!important;"
+    "margin:0!important;border-radius:999px!important;background:#fff!important;color:#222!important;"
+    "border:2px solid #e5e5e5!important;box-shadow:0 2px 0 #e5e5e5!important;"
+    "font:700 13px/1.2 system-ui,-apple-system,Segoe UI,sans-serif!important;text-decoration:none!important;"
+    "opacity:1!important;visibility:visible!important;transform:none!important"
+)
+
+
+def with_badge(html: str) -> str:
+    html = _BADGE.sub("", html)
+    lang = re.search(r"<html\b[^>]*\slang=[\"']?(\w+)", html, re.I)
+    text = _BADGE_TEXT["uk" if lang and lang.group(1).lower() in ("uk", "ua") else "en"]
+    frontend = os.getenv("FRONTEND_ORIGIN", "").rstrip("/") or "http://localhost:5173"
+    badge = (
+        f'<a id="vf-badge" href="{html_lib.escape(frontend)}/?utm_source=vf-badge" target="_blank" '
+        f'rel="noopener" style="{_BADGE_STYLE}">'
+        f'<span aria-hidden="true">🔥</span>{text}</a>'
+        "<style>@media print{#vf-badge{display:none!important}}</style>"
+    )
+    m = re.search(r"</body>", html, re.I)
+    at = m.start() if m else len(html)
+    return html[:at] + badge + html[at:]
 
 
 def with_seo_basics(html: str, url: str) -> str:

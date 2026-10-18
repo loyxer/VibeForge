@@ -114,7 +114,7 @@ const Preview = forwardRef<PreviewHandle, Props>(function Preview(
             key={slot}
             className={`preview__frame${slot === active ? '' : ' preview__frame--hidden'}`}
             srcDoc={slots[slot]!}
-            sandbox="allow-scripts allow-forms allow-popups"
+            sandbox="allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"
             title={slot === active ? t('preview.frame') : t('preview.frameNext')}
             onLoad={() => handleLoad(slot)}
           />
