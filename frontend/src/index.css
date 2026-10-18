@@ -216,6 +216,12 @@ body {
   gap: 0.5rem;
 }
 
+.account__hint {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
 .account__ok {
   color: var(--green-text);
   font-size: 0.85rem;

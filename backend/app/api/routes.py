@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import os
@@ -9,7 +10,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from pydantic import BaseModel
 
-from app import auth, feedback, leads, photos, projects, publishing, reviews, stats, supabase, usage, user_photos, versions, visits
+from app import auth, chat_sites, feedback, leads, photos, projects, publishing, reviews, stats, supabase, usage, user_photos, versions, visits
 from app.auth import current_user
 from app.generation.base import GenerationRequest, SiteGenerator, finish_html
 from app.generation.gemini import ModelsBusyError, QuotaExceededError
@@ -341,8 +342,53 @@ async def telegram_webhook(request: Request):
     ) != leads.webhook_secret():
         raise HTTPException(status_code=403, detail="Forbidden")
     update = await request.json()
-    await run_in_threadpool(leads.handle_update, update)
+    job = await run_in_threadpool(chat_sites.handle_update, update)
+    if job:
+        # Telegram wants its answer within seconds; the site takes minutes.
+        task = asyncio.create_task(_build_for_chat(job))
+        _chat_tasks.add(task)  # a task nobody holds can be garbage-collected mid-run
+        task.add_done_callback(_chat_tasks.discard)
     return {"ok": True}
+
+
+_chat_tasks: set[asyncio.Task] = set()
+
+
+async def _build_for_chat(job: chat_sites.Job) -> None:
+    """Make (or change) the site a person asked for in the Telegram chat, then
+    tell them. The same pipeline as the app's chat: limits, saving, history."""
+    typing = asyncio.create_task(_keep_typing(job.chat_id))
+    done: Optional[dict] = None
+    error_status = 500
+    try:
+        previous_html = None
+        if job.project_id:
+            project = await run_in_threadpool(projects.get_project, job.project_id, job.owner)
+            previous_html = project["html"]
+        request = GenerationRequest(prompt=job.prompt, previous_html=previous_html)
+        body = GenerateBody(prompt=job.prompt, project_id=job.project_id)
+        async for line in _generation_events(request, body, job.owner):
+            event = json.loads(line)
+            if event["type"] == "done":
+                done = event
+            elif event["type"] == "error":
+                error_status = event.get("status", 500)
+    except Exception:
+        logger.exception("Telegram site failed")
+    finally:
+        typing.cancel()
+    if done:
+        await run_in_threadpool(
+            chat_sites.finished, job, done["project_id"], done["remaining_today"]
+        )
+    else:
+        await run_in_threadpool(chat_sites.failed, job, error_status)
+
+
+async def _keep_typing(chat_id: int) -> None:
+    while True:
+        await run_in_threadpool(leads.typing, chat_id)
+        await asyncio.sleep(4)
 
 
 @router.post("/photos")

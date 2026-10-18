@@ -218,6 +218,7 @@ function TelegramConnect() {
   return (
     <div className="account__telegram">
       <span className="account__section">{t('telegram.title')}</span>
+      {state.connected && <span className="account__hint">{t('telegram.connectedHint')}</span>}
       {state.connected ? (
         <div className="account__row">
           <span className="account__ok">{t('telegram.connected')}</span>

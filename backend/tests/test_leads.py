@@ -154,3 +154,133 @@ def test_without_a_bot_token(client, monkeypatch):
     monkeypatch.delenv("TELEGRAM_BOT_TOKEN", raising=False)
     assert client.get("/api/telegram").json() == {"available": False, "connected": False}
     assert client.post("/api/telegram/link").status_code == 503
+
+
+# ---------------------------------------------------- sites from the chat
+
+
+def connect(client, chat_id=777):
+    code = client.post("/api/telegram/link").json()["url"].split("start=")[1]
+    leads.handle_update({"message": {"chat": {"id": chat_id}, "text": f"/start {code}"}})
+
+
+def say(client, text, chat_id=777, update_id=None):
+    """Writes to the bot and waits until it has finished its work."""
+    import time
+    update = {"message": {"chat": {"id": chat_id}, "text": text}}
+    if update_id is not None:
+        update["update_id"] = update_id
+    res = client.post(
+        "/api/telegram/webhook",
+        json=update,
+        headers={"X-Telegram-Bot-Api-Secret-Token": leads.webhook_secret()},
+    )
+    assert res.status_code == 200
+    deadline = time.monotonic() + 10
+    while routes._chat_tasks and time.monotonic() < deadline:
+        time.sleep(0.02)
+    assert not routes._chat_tasks, "the bot never finished"
+
+
+@pytest.fixture
+def persistent():
+    """One event loop for the whole test, so a site the bot is still making
+    in the background isn't cut off when the webhook request ends."""
+    with TestClient(app) as c:
+        yield c
+
+
+@pytest.fixture
+def chat(persistent, bot, monkeypatch):
+    from app import chat_sites
+
+    monkeypatch.setattr(leads, "typing", lambda chat_id: None)
+    chat_sites._busy.clear()
+    chat_sites._seen.clear()
+    connect(persistent)
+    bot.clear()
+    return bot
+
+
+def test_stranger_is_told_to_connect(persistent, bot):
+    say(persistent, "сайт для кав'ярні", chat_id=555)
+    assert "Підключити Telegram" in bot[-1][1]
+    assert not projects._STORE_PATH.exists()
+
+
+def test_message_makes_a_site_and_further_ones_change_it(persistent, chat):
+    say(persistent, "сайт для кав'ярні")
+    assert chat[0][1].startswith("⏳ Створюю")
+    assert chat[-1][1].startswith("✅ Готово")
+    items = persistent.get("/api/projects").json()["items"]
+    assert len(items) == 1
+
+    say(persistent, "зроби шапку темнішою")
+    assert chat[-2][1].startswith("⏳ Вношу зміни")
+    assert len(persistent.get("/api/projects").json()["items"]) == 1  # the same site
+    history = persistent.get(f"/api/projects/{items[0]['id']}").json()["history"]
+    assert history == ["сайт для кав'ярні", "зроби шапку темнішою"]
+
+
+def test_new_starts_another_site(persistent, chat):
+    say(persistent, "сайт для кав'ярні")
+    say(persistent, "/new")
+    say(persistent, "сайт для перукарні")
+    assert len(persistent.get("/api/projects").json()["items"]) == 2
+
+
+def test_nothing_is_public_until_publish(persistent, chat):
+    say(persistent, "сайт для кав'ярні")
+    assert not publishing._STORE_PATH.exists()
+    say(persistent, "/publish")
+    assert "Сайт опубліковано: " in chat[-1][1]
+    slug = chat[-1][1].split("/s/")[1].split()[0]
+    assert persistent.get(f"/s/{slug}").status_code == 200
+
+
+def test_publish_without_a_site(persistent, chat):
+    say(persistent, "/publish")
+    assert chat[-1][1].startswith("Спершу створи сайт")
+
+
+def test_daily_limit_applies_in_the_chat(persistent, chat, monkeypatch):
+    monkeypatch.setattr(usage, "DAILY_LIMIT", 1)
+    say(persistent, "сайт для кав'ярні")
+    say(persistent, "ще один сайт")
+    assert chat[-1][1].startswith("Ліміт на сьогодні вичерпано")
+
+
+def test_one_site_at_a_time_and_redelivery_is_ignored(persistent, chat):
+    from app import chat_sites
+
+    chat_sites._busy.add(777)
+    say(persistent, "сайт для кав'ярні")
+    assert chat[-1][1].startswith("Я ще працюю")
+    chat_sites._busy.clear()
+    say(persistent, "сайт для кав'ярні", update_id=9)
+    count = len(chat)
+    say(persistent, "сайт для кав'ярні", update_id=9)  # Telegram sent it again
+    assert len(chat) == count
+
+
+def test_a_failed_site_is_reported_and_frees_the_chat(persistent, chat, monkeypatch):
+    class Broken(MockGenerator):
+        async def stream(self, request):
+            raise RuntimeError("boom")
+            yield
+
+    monkeypatch.setattr(routes, "_generator", Broken(delay=0))
+    say(persistent, "сайт для кав'ярні")
+    assert chat[-1][1].startswith("Не вдалося")
+    monkeypatch.setattr(routes, "_generator", FormPage(delay=0))
+    say(persistent, "сайт для кав'ярні")
+    assert chat[-1][1].startswith("✅ Готово")
+
+
+def test_disconnecting_forgets_the_site(persistent, chat):
+    say(persistent, "сайт для кав'ярні")
+    persistent.delete("/api/telegram")
+    connect(persistent)
+    chat.clear()
+    say(persistent, "сайт для перукарні")
+    assert len(persistent.get("/api/projects").json()["items"]) == 2

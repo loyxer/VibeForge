@@ -198,3 +198,8 @@ create index if not exists review_comments_project_idx
 
 alter table public.review_comments enable row level security;
 grant select, insert, update, delete on public.review_comments to service_role;
+
+-- The site a person is working on in the Telegram chat (backend/app/chat_sites.py):
+-- plain messages change it, /new clears it.
+alter table public.telegram_links
+  add column if not exists active_project_id uuid references public.projects (id) on delete set null;

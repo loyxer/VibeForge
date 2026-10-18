@@ -43,6 +43,11 @@ def public_url(slug: str) -> str:
     return base + slug
 
 
+def app_url() -> str:
+    """Where people open VibeForge itself."""
+    return os.getenv("FRONTEND_ORIGIN", "").rstrip("/") or "VibeForge"
+
+
 def publish(project_id: str, owner: str) -> str:
     """Publish (or re-publish) the project's current HTML; returns the slug.
     Raises KeyError if the project doesn't exist or isn't the owner's."""

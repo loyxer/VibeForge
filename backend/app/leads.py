@@ -10,6 +10,8 @@ in Telegram.
   pressing Start in Telegram sends "/start <code>" to our webhook, which
   remembers that chat for that account (table `telegram_links`).
 
+Making sites by writing to the bot lives in chat_sites.py.
+
 Needs TELEGRAM_BOT_TOKEN (from @BotFather). Without it forms are still
 stored, just not forwarded, and the app says Telegram isn't available.
 """
@@ -67,6 +69,21 @@ def bot_username() -> Optional[str]:
         res.raise_for_status()
         _username[token] = res.json()["result"]["username"]
     return _username[token]
+
+
+def typing(chat_id: int) -> None:
+    """Show "typing…" in the chat for a few seconds (Telegram clears it)."""
+    token = bot_token()
+    if not token:
+        return
+    try:
+        httpx.post(
+            f"https://api.telegram.org/bot{token}/sendChatAction",
+            json={"chat_id": chat_id, "action": "typing"},
+            timeout=10,
+        )
+    except httpx.HTTPError:
+        pass
 
 
 def send(chat_id: int, text: str) -> bool:
@@ -129,7 +146,24 @@ def link_url(owner: str) -> str:
 
 
 def disconnect(owner: str) -> None:
-    _save_link(owner, {"chat_id": None, "code": None, "code_expires_at": None})
+    _save_link(
+        owner,
+        {"chat_id": None, "code": None, "code_expires_at": None, "active_project_id": None},
+    )
+
+
+def owners_of_chat(chat_id: int) -> list[str]:
+    return _owners_with_chat(chat_id)
+
+
+def active_project_of(owner: str) -> Optional[str]:
+    """The site the person is working on in the chat (see chat_sites.py)."""
+    row = _link_row(owner)
+    return row.get("active_project_id") if row else None
+
+
+def set_active_project(owner: str, project_id: Optional[str]) -> None:
+    _save_link(owner, {"active_project_id": project_id})
 
 
 def handle_update(update: dict[str, Any]) -> None:
@@ -156,12 +190,15 @@ def handle_update(update: dict[str, Any]) -> None:
 
 
 CONNECTED_TEXT = (
-    "✅ Готово! Заявки з форм на твоїх опублікованих сайтах VibeForge тепер приходитимуть сюди.\n"
-    "Щоб відключити — напиши /stop або натисни «Відключити» в меню акаунта."
+    "✅ Готово! Тепер:\n"
+    "• заявки з форм на твоїх опублікованих сайтах приходитимуть сюди;\n"
+    "• ти можеш просто написати мені, який сайт потрібен, — я його створю. "
+    "Наприклад: «Сайт для кав'ярні у Львові».\n"
+    "Усі команди — /help. Відключити — /stop або кнопка «Відключити» в меню акаунта."
 )
 STOPPED_TEXT = "Заявки більше не надходитимуть сюди. Підключити знову можна в меню акаунта VibeForge."
 HELP_TEXT = (
-    "Це бот VibeForge: він надсилає заявки з форм на твоїх сайтах.\n"
+    "Це бот VibeForge: він створює сайти за описом і надсилає заявки з форм на них.\n"
     "Щоб підключити його, відкрий меню акаунта на сайті VibeForge і натисни «Підключити Telegram»."
 )
 
@@ -306,7 +343,8 @@ def _link_row(owner: str) -> Optional[dict]:
     if config := supabase.config():
         with _rest(config) as client:
             res = client.get(
-                "/telegram_links", params={"user_id": f"eq.{owner}", "select": "chat_id"}
+                "/telegram_links",
+                params={"user_id": f"eq.{owner}", "select": "chat_id,active_project_id"},
             )
         res.raise_for_status()
         rows = res.json()
