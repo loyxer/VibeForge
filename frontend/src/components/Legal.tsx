@@ -6,7 +6,7 @@ import type { ReactNode } from 'react'
 import { useLang } from '../i18n'
 
 const CONTACT = 'vibeforge.verify@gmail.com'
-const UPDATED = { en: 'October 18, 2026', uk: '18 жовтня 2026 р.' }
+const UPDATED = { en: 'October 19, 2026', uk: '19 жовтня 2026 р.' }
 
 const FRAME = {
   en: { back: '← Back to VibeForge', updated: 'Last updated:', contact: 'Contact', questions: 'Questions or requests:' },
@@ -91,7 +91,11 @@ function PrivacyEn() {
         </li>
         <li>
           <strong>Telegram.</strong> If you connect Telegram, we store the ID of your chat with
-          the VibeForge bot so we can send submissions there.
+          the VibeForge bot and which site you are working on in that chat. The bot sends you
+          form submissions and makes or changes sites from the descriptions you write to it:
+          those messages are handled exactly like the text you type in the VibeForge chat
+          (including being sent to the AI service). A site made in the bot becomes public only
+          when you send the /publish command.
         </li>
         <li>
           <strong>Visits to published sites.</strong> When someone opens a published site, we
@@ -129,7 +133,11 @@ function PrivacyEn() {
           </strong>
         </li>
         <li><strong>Gmail</strong> sends the sign-in and password-reset codes.</li>
-        <li><strong>Telegram</strong> delivers submissions to your chat with the VibeForge bot.</li>
+        <li>
+          <strong>Telegram</strong> delivers submissions to your chat with the VibeForge bot and
+          receives what you write to it; that conversation also stays in your Telegram history,
+          under Telegram's own policy.
+        </li>
         <li>
           <strong>Unsplash</strong> provides the photos: our server sends it only the short photo
           descriptions the AI writes (like "latte art on a wooden table"), never your account
@@ -224,7 +232,11 @@ function PrivacyUk() {
         </li>
         <li>
           <strong>Telegram.</strong> Якщо ви підключаєте Telegram, ми зберігаємо ідентифікатор
-          вашого чату з ботом VibeForge, щоб надсилати туди заявки.
+          вашого чату з ботом VibeForge і те, над яким сайтом ви зараз працюєте в цьому чаті.
+          Бот надсилає вам заявки з форм і створює чи змінює сайти за описами, які ви йому
+          пишете: ці повідомлення обробляються так само, як текст, який ви вводите в чаті
+          VibeForge (зокрема передаються сервісу ШІ). Сайт, створений у боті, стає публічним
+          лише після вашої команди /publish.
         </li>
         <li>
           <strong>Відвідування опублікованих сайтів.</strong> Коли хтось відкриває опублікований
@@ -262,7 +274,11 @@ function PrivacyUk() {
           </strong>
         </li>
         <li><strong>Gmail</strong> надсилає коди для входу та відновлення пароля.</li>
-        <li><strong>Telegram</strong> доставляє заявки у ваш чат із ботом VibeForge.</li>
+        <li>
+          <strong>Telegram</strong> доставляє заявки у ваш чат із ботом VibeForge і приймає те,
+          що ви йому пишете; ця розмова також залишається в історії вашого Telegram за його
+          власною політикою.
+        </li>
         <li>
           <strong>Unsplash</strong> надає фото: наш сервер надсилає йому лише короткі описи фото,
           які пише AI (наприклад, «latte art on a wooden table»), і ніколи — дані вашого акаунта.
