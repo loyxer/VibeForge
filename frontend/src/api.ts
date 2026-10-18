@@ -31,7 +31,7 @@ export async function apiFetch(path: string, init: RequestInit = {}): Promise<Re
 }
 
 // Daily generation allowance; nulls mean "no limit".
-export type Usage = { limit: number | null; remaining_today: number | null }
+export type Usage = { limit: number | null; remaining_today: number | null; owner?: boolean }
 
 // What POST /api/generate streams back, one JSON object per line.
 export type GenerationEvent =

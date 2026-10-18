@@ -159,7 +159,7 @@ def test_slow_database_does_not_block_other_requests(monkeypatch):
 
 def test_daily_limit(client, monkeypatch):
     monkeypatch.setattr(usage, "DAILY_LIMIT", 2)
-    assert client.get("/api/usage").json() == {"limit": 2, "remaining_today": 2}
+    assert client.get("/api/usage").json() == {"limit": 2, "remaining_today": 2, "owner": True}
 
     first = generate(client, "a")
     assert first["remaining_today"] == 1
@@ -211,7 +211,7 @@ def test_unlimited_accounts_have_no_limit(client, monkeypatch):
     monkeypatch.setattr(usage, "UNLIMITED", {"local"})  # the user in local mode
     for prompt in "abc":
         assert generate(client, prompt)["type"] == "done"
-    assert client.get("/api/usage").json() == {"limit": None, "remaining_today": None}
+    assert client.get("/api/usage").json() == {"limit": None, "remaining_today": None, "owner": True}
     assert usage.remaining_today("someone-else") == 1  # others keep the limit
 
 
@@ -219,7 +219,7 @@ def test_zero_means_unlimited(client, monkeypatch):
     monkeypatch.setattr(usage, "DAILY_LIMIT", 0)
     for prompt in "abc":
         assert generate(client, prompt)["type"] == "done"
-    assert client.get("/api/usage").json() == {"limit": None, "remaining_today": None}
+    assert client.get("/api/usage").json() == {"limit": None, "remaining_today": None, "owner": True}
 
 
 def test_publish_serves_the_site_publicly_in_a_sandbox(client):

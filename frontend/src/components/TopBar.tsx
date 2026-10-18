@@ -47,7 +47,7 @@ export default function TopBar({ session, usage, onOpenGallery }: Props) {
           </button>
         )}
         <LangSwitch />
-        {session && <AccountMenu email={session.user.email ?? ''} />}
+        {session && <AccountMenu email={session.user.email ?? ''} owner={usage?.owner ?? false} />}
       </div>
     </header>
   )
@@ -78,7 +78,7 @@ function LangSwitch() {
   )
 }
 
-function AccountMenu({ email }: { email: string }) {
+function AccountMenu({ email, owner }: { email: string; owner: boolean }) {
   const t = useT()
   const [open, setOpen] = useState(false)
   const [dialog, setDialog] = useState<'password' | 'delete' | null>(null)
@@ -113,6 +113,11 @@ function AccountMenu({ email }: { email: string }) {
       {open && (
         <div className="account__menu">
           <span className="account__email">{email}</span>
+          {owner && (
+            <a className="btn btn--small" href="/stats">
+              {t('app.stats')}
+            </a>
+          )}
           <button
             type="button"
             className="btn btn--small"

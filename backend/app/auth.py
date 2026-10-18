@@ -13,6 +13,14 @@ from app import supabase
 LOCAL_USER = "local"
 
 
+def is_owner(user: str) -> bool:
+    """The owner's own accounts (UNLIMITED_USER_IDS), or the single user of
+    plain local mode: they have no daily limit and can see the stats."""
+    from app import usage  # usage doesn't import auth, but keep it lazy anyway
+
+    return user == LOCAL_USER or user in usage.UNLIMITED
+
+
 async def current_user(authorization: str | None = Header(default=None)) -> str:
     config = supabase.config()
     if config is None:

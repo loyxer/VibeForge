@@ -9,7 +9,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from pydantic import BaseModel
 
-from app import auth, photos, projects, publishing, supabase, usage, user_photos, versions
+from app import auth, photos, projects, publishing, stats, supabase, usage, user_photos, versions
 from app.auth import current_user
 from app.generation.base import GenerationRequest, SiteGenerator, finish_html
 from app.generation.gemini import ModelsBusyError, QuotaExceededError
@@ -173,7 +173,19 @@ def _line(event: dict) -> str:
 # so they don't freeze other requests.
 @router.get("/usage")
 def get_usage(user: str = Depends(current_user)):
-    return {"limit": usage.limit_for(user), "remaining_today": usage.remaining_today(user)}
+    return {
+        "limit": usage.limit_for(user),
+        "remaining_today": usage.remaining_today(user),
+        "owner": auth.is_owner(user),  # shows the Stats item in the account menu
+    }
+
+
+@router.get("/stats")
+def get_stats(user: str = Depends(current_user)):
+    """How VibeForge is used — for the owner only."""
+    if not auth.is_owner(user):
+        raise HTTPException(status_code=403, detail="Only the owner can see this")
+    return stats.overview()
 
 
 @router.get("/projects")

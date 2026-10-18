@@ -1326,3 +1326,129 @@ body {
     opacity: 0.7;
   }
 }
+
+/* ---------------------------------------------------------------- stats */
+
+.stats {
+  width: min(960px, calc(100% - 2rem));
+}
+
+.stats__cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr));
+  gap: 0.9rem;
+  margin-top: 1rem;
+}
+
+.stats__card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.9rem 1rem;
+  border: 2px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 4px 0 var(--line);
+}
+
+.stats__label {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.stats__value {
+  font-size: 2rem;
+  font-weight: 900;
+  line-height: 1.1;
+}
+
+.stats__detail,
+.stats__muted {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.stats__error {
+  padding: 0.6rem 0.8rem;
+  border-radius: 12px;
+  background: var(--red-bg);
+  color: var(--red-text);
+  font-weight: 700;
+}
+
+.stats__models {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.stats__models li {
+  display: grid;
+  grid-template-columns: minmax(0, 13rem) 1fr 2.5rem;
+  align-items: center;
+  gap: 0.7rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.stats__model {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stats__bar {
+  height: 10px;
+  border-radius: 999px;
+  background: var(--soft);
+  overflow: hidden;
+}
+
+.stats__bar span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--orange);
+}
+
+.stats__count {
+  text-align: right;
+}
+
+.stats__table-wrap {
+  overflow-x: auto;
+}
+
+.stats__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.stats__table th,
+.stats__table td {
+  padding: 0.5rem 0.6rem;
+  border-bottom: 2px solid var(--soft);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.stats__table th {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.stats__you {
+  margin-left: 0.4rem;
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  background: var(--sky);
+  color: var(--sky-text);
+  font-size: 0.72rem;
+  font-weight: 800;
+}

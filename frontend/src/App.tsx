@@ -8,6 +8,7 @@ import SiteActions from './components/SiteActions'
 import VersionHistory, { VersionSummary } from './components/VersionHistory'
 import { Privacy, Terms } from './components/Legal'
 import TopBar from './components/TopBar'
+import Stats from './components/Stats'
 import { apiFetch, readEvents, Usage } from './api'
 import { discardPhoto, MAX_PHOTOS_PER_SITE, shrink, TrayPhoto, uploadPhoto } from './photoUpload'
 import { supabase } from './supabase'
@@ -39,6 +40,13 @@ export default function App() {
     return (
       <Shell session={null}>
         <SignIn />
+      </Shell>
+    )
+  }
+  if (path === '/stats') {
+    return (
+      <Shell session={session}>
+        <Stats />
       </Shell>
     )
   }
