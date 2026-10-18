@@ -353,3 +353,28 @@ def test_delete_account_removes_everything(client):
     assert client.delete("/api/account").json() == {"status": "deleted"}
     assert client.get(f"/api/projects/{project_id}").status_code == 404
     assert client.get("/api/projects").json()["items"] == []
+
+
+def test_credit_line_goes_when_the_last_stock_photo_does(client, monkeypatch):
+    class Pages(MockGenerator):
+        def __init__(self, pages):
+            super().__init__(delay=0)
+            self.pages = pages
+
+        async def stream(self, request):
+            yield ("model", "mock")
+            yield ("text", self.pages.pop(0))
+
+    credited = (
+        '<html><body><img data-photo="latte" data-photo-credit="Ann|https://unsplash.com/@ann" '
+        'src="https://images.unsplash.com/a">'
+        '<div class="vf-photo-credits">Photos by Ann on Unsplash</div></body></html>'
+    )
+    only_mine = (
+        '<html><body><img src="/api/uploads/local/x.jpg">'
+        '<div class="vf-photo-credits">Photos by Ann on Unsplash</div></body></html>'
+    )
+    monkeypatch.setattr(routes, "_generator", Pages([credited, only_mine]))
+    project_id = generate(client, "cafe")["project_id"]
+    html = generate(client, "only my own photos", project_id)["html"]
+    assert "vf-photo-credits" not in html and "Ann" not in html

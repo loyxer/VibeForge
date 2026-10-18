@@ -119,6 +119,10 @@ async def _generation_events(
         if "data-photo" in html:
             yield _line({"type": "status", "text": "Adding photos…"})
             html = await run_in_threadpool(photos.fill, html)
+        elif "vf-photo-credits" in html:
+            # Every stock photo is gone (e.g. "only my own photos"): drop
+            # the credit line naming their authors too.
+            html = await run_in_threadpool(photos.fill, html)
         if body.project_id:
             await run_in_threadpool(
                 projects.update_project, body.project_id, user, html, body.prompt

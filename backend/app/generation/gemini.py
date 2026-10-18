@@ -179,7 +179,9 @@ url('URL'):
 {listing}
 They are the person's own photos: no data-photo attribute and no credit
 line for them, and no stock photos of the same things they already show
-(if they show the café's interior, don't add a stock interior)."""
+(if they show the café's interior, don't add a stock interior). If the
+instruction asks for only their own photos, add no data-photo or
+data-photo-bg at all."""
 
 
 class GeminiGenerator(SiteGenerator):
