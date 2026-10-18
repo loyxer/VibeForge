@@ -105,6 +105,20 @@ function Workspace({ session }: { session: Session | null }) {
   // The person's own photos waiting to go out with the next message.
   const [tray, setTray] = useState<TrayPhoto[]>([])
   const [device, setDevice] = useState<Device>('desktop')
+  // Is the VibeForge bot set up, and has this person connected it?
+  const [telegram, setTelegram] = useState<{ available: boolean; connected: boolean } | null>(null)
+
+  // Checked again on coming back to the tab — e.g. from pressing Start in Telegram.
+  useEffect(() => {
+    const load = () =>
+      apiFetch('/api/telegram')
+        .then((res) => (res.ok ? res.json() : null))
+        .then(setTelegram)
+        .catch(() => {})
+    load()
+    window.addEventListener('focus', load)
+    return () => window.removeEventListener('focus', load)
+  }, [])
 
   useEffect(() => {
     apiFetch('/api/usage')
@@ -477,6 +491,9 @@ function Workspace({ session }: { session: Session | null }) {
               onPublish={() => changePublished('POST')}
               onUnpublish={() => changePublished('DELETE')}
             />
+          )}
+          {publishedUrl && !loading && telegram?.available && !telegram.connected && /<form[\s>]/i.test(html ?? '') && (
+            <p className="telegram-hint">{t('telegram.hint')}</p>
           )}
           {historyOpen && projectId && !loading && !editing && (
             <VersionHistory

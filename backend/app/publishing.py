@@ -48,7 +48,7 @@ def publish(project_id: str, owner: str) -> str:
     if config := supabase.config():
         existing = _sb_slug(config, project_id, owner)
         slug = existing or _new_slug()
-        html = with_link_preview(html, public_url(slug))
+        html = _finish_page(html, slug)
         with _rest(config) as client:
             if existing:
                 res = client.patch(
@@ -73,10 +73,17 @@ def publish(project_id: str, owner: str) -> str:
         data = _read()
         slug = next((s for s, p in data.items() if p["project_id"] == project_id), None)
         slug = slug or _new_slug()
-        html = with_link_preview(html, public_url(slug))
+        html = _finish_page(html, slug)
         data[slug] = {"project_id": project_id, "owner": owner, "html": html, "published_at": now}
         _write(data)
         return slug
+
+
+def _finish_page(html: str, slug: str) -> str:
+    """What a published page gets on top of the site itself."""
+    from app import leads  # leads uses this module, so import it late
+
+    return leads.with_form_capture(with_link_preview(html, public_url(slug)), slug)
 
 
 # What Telegram, Viber, Facebook and the rest show for a shared link: they
@@ -172,6 +179,27 @@ def slug_for(project_id: str, owner: str) -> Optional[str]:
             (s for s, p in _read().items() if p["project_id"] == project_id and p["owner"] == owner),
             None,
         )
+
+
+def site_for(slug: str) -> tuple[str, str]:
+    """(project_id, owner) of a published page; KeyError if there's none."""
+    if not SLUG_PATTERN.match(slug):
+        raise KeyError(slug)
+    if config := supabase.config():
+        with _rest(config) as client:
+            res = client.get(
+                "/published_sites", params={"slug": f"eq.{slug}", "select": "project_id,user_id"}
+            )
+        res.raise_for_status()
+        rows = res.json()
+        if not rows:
+            raise KeyError(slug)
+        return rows[0]["project_id"], rows[0]["user_id"]
+    with _lock:
+        entry = _read().get(slug)
+    if entry is None:
+        raise KeyError(slug)
+    return entry["project_id"], entry["owner"]
 
 
 def page(slug: str) -> Optional[str]:

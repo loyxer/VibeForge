@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import type { Usage } from '../api'
+import { apiFetch, type Usage } from '../api'
 import { supabase } from '../supabase'
 import { Lang, useLang, useT } from '../i18n'
 import Mascot from './Mascot'
@@ -113,6 +113,7 @@ function AccountMenu({ email, owner }: { email: string; owner: boolean }) {
       {open && (
         <div className="account__menu">
           <span className="account__email">{email}</span>
+          <TelegramConnect />
           {owner && (
             <a className="btn btn--small" href="/stats">
               {t('app.stats')}
@@ -145,6 +146,79 @@ function AccountMenu({ email, owner }: { email: string; owner: boolean }) {
       )}
       {dialog === 'password' && <ChangePasswordDialog onClose={() => setDialog(null)} />}
       {dialog === 'delete' && <DeleteAccountDialog onClose={() => setDialog(null)} />}
+    </div>
+  )
+}
+
+type TelegramState = { available: boolean; connected: boolean }
+
+// Form submissions from the person's published sites, sent to them by the
+// VibeForge bot. Connecting = opening the bot with a one-time code.
+function TelegramConnect() {
+  const t = useT()
+  const [state, setState] = useState<TelegramState | null>(null)
+  const [waiting, setWaiting] = useState(false)
+
+  const load = () =>
+    apiFetch('/api/telegram')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((s: TelegramState | null) => {
+        setState(s)
+        if (s?.connected) setWaiting(false)
+      })
+      .catch(() => {})
+
+  useEffect(() => {
+    load()
+  }, [])
+
+  // While they're off in Telegram pressing Start, check back every few seconds.
+  useEffect(() => {
+    if (!waiting) return
+    const poll = setInterval(load, 3000)
+    const giveUp = setTimeout(() => setWaiting(false), 120_000)
+    return () => {
+      clearInterval(poll)
+      clearTimeout(giveUp)
+    }
+  }, [waiting])
+
+  async function connect() {
+    // Opened right away (a popup opened after waiting for the server gets
+    // blocked), then pointed at the bot once we have the link.
+    const tab = window.open('', '_blank')
+    const res = await apiFetch('/api/telegram/link', { method: 'POST' })
+    if (!res.ok) {
+      tab?.close()
+      return
+    }
+    const { url } = await res.json()
+    if (tab) tab.location.href = url
+    else window.location.href = url
+    setWaiting(true)
+  }
+
+  async function disconnect() {
+    await apiFetch('/api/telegram', { method: 'DELETE' })
+    load()
+  }
+
+  if (!state?.available) return null
+  return (
+    <div className="account__telegram">
+      <span className="account__section">{t('telegram.title')}</span>
+      {state.connected ? (
+        <div className="account__row">
+          <span className="account__ok">{t('telegram.connected')}</span>
+          <button type="button" className="btn btn--small" onClick={disconnect}>
+            {t('telegram.disconnect')}
+          </button>
+        </div>
+      ) : (
+        <button type="button" className="btn btn--small btn--blue" onClick={connect} disabled={waiting}>
+          {waiting ? t('telegram.waiting') : t('telegram.connect')}
+        </button>
+      )}
     </div>
   )
 }

@@ -7,6 +7,8 @@ import os
 os.environ["SUPABASE_URL"] = ""
 os.environ["SUPABASE_SECRET_KEY"] = ""
 os.environ["GENERATOR"] = "mock"
+os.environ["TELEGRAM_BOT_TOKEN"] = ""  # never talk to the real bot
+os.environ["RENDER_EXTERNAL_URL"] = ""
 
 import pytest  # noqa: E402
 

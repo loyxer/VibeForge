@@ -15,12 +15,25 @@ _handler.setFormatter(logging.Formatter("%(levelname)s:     %(message)s"))
 _log.addHandler(_handler)
 _log.propagate = False
 
+import threading  # noqa: E402
+from contextlib import asynccontextmanager  # noqa: E402
+
 from fastapi import FastAPI  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 
 from app.api.routes import public_router, router  # noqa: E402
 
-app = FastAPI(title="VibeForge API")
+@asynccontextmanager
+async def lifespan(_app):
+    # Point the Telegram bot at this server — in the background, so starting
+    # up never waits on Telegram.
+    from app import leads
+
+    threading.Thread(target=leads.register_webhook, daemon=True).start()
+    yield
+
+
+app = FastAPI(title="VibeForge API", lifespan=lifespan)
 
 # FRONTEND_ORIGIN is the deployed frontend's real URL (e.g.
 # https://vibeforge.vercel.app) — set it as an env var on the hosting

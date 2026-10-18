@@ -9,7 +9,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from pydantic import BaseModel
 
-from app import auth, photos, projects, publishing, stats, supabase, usage, user_photos, versions
+from app import auth, leads, photos, projects, publishing, stats, supabase, usage, user_photos, versions
 from app.auth import current_user
 from app.generation.base import GenerationRequest, SiteGenerator, finish_html
 from app.generation.gemini import ModelsBusyError, QuotaExceededError
@@ -213,6 +213,7 @@ def delete_project(project_id: str, user: str = Depends(current_user)):
         raise HTTPException(status_code=404, detail="Project not found")
     publishing.forget_project(project_id)
     versions.forget_project(project_id)
+    leads.forget_project(project_id)
     return {"status": "deleted"}
 
 
@@ -243,6 +244,59 @@ def delete_account(user: str = Depends(current_user)):
             publishing.forget_project(project_id)
             versions.forget_project(project_id)
     return {"status": "deleted"}
+
+
+@router.post("/forms/{slug}")
+async def form_submitted(slug: str, request: Request):
+    """A visitor sent a form on a published site (the page's own script
+    posts it here as text/plain JSON, so no CORS preflight is needed).
+    Public: there's no sign-in on published pages."""
+    body = await request.body()
+    if len(body) > 20_000:
+        raise HTTPException(status_code=413, detail="Too large")
+    try:
+        fields = json.loads(body).get("fields")
+    except (ValueError, AttributeError):
+        raise HTTPException(status_code=400, detail="Bad form data")
+    ip = (request.headers.get("x-forwarded-for") or (request.client.host if request.client else "")).split(",")[0].strip()
+    try:
+        await run_in_threadpool(leads.submit, slug, fields, ip)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="This page doesn't exist or was unpublished")
+    except leads.TooMany:
+        raise HTTPException(status_code=429, detail="Too many submissions — try again later")
+    return {"status": "received"}
+
+
+@router.get("/telegram")
+def telegram_status(user: str = Depends(current_user)):
+    return leads.status(user)
+
+
+@router.post("/telegram/link")
+def telegram_link(user: str = Depends(current_user)):
+    """A one-time link to the bot; opening it and pressing Start connects."""
+    if not leads.bot_token():
+        raise HTTPException(status_code=503, detail="Telegram isn't available right now")
+    return {"url": leads.link_url(user)}
+
+
+@router.delete("/telegram")
+def telegram_disconnect(user: str = Depends(current_user)):
+    leads.disconnect(user)
+    return {"connected": False}
+
+
+@router.post("/telegram/webhook")
+async def telegram_webhook(request: Request):
+    """Messages to the bot. Only Telegram knows the secret it sends."""
+    if not leads.bot_token() or request.headers.get(
+        "x-telegram-bot-api-secret-token"
+    ) != leads.webhook_secret():
+        raise HTTPException(status_code=403, detail="Forbidden")
+    update = await request.json()
+    await run_in_threadpool(leads.handle_update, update)
+    return {"ok": True}
 
 
 @router.post("/photos")

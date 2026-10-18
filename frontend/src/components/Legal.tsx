@@ -70,6 +70,16 @@ function PrivacyEn() {
           of a published site.
         </li>
         <li>
+          <strong>Submissions from your sites.</strong> What visitors of your published sites
+          send through forms (for example, a name, phone number or message). We store these
+          submissions and, if you connected Telegram, forward them to you. This data belongs to
+          you as the site owner: we only store and deliver it.
+        </li>
+        <li>
+          <strong>Telegram.</strong> If you connect Telegram, we store the ID of your chat with
+          the VibeForge bot so we can send submissions there.
+        </li>
+        <li>
           <strong>Usage records.</strong> The time of each generation and which AI model made
           it. This is how the daily limit is counted.
         </li>
@@ -98,6 +108,7 @@ function PrivacyEn() {
           </strong>
         </li>
         <li><strong>Gmail</strong> sends the sign-in and password-reset codes.</li>
+        <li><strong>Telegram</strong> delivers submissions to your chat with the VibeForge bot.</li>
         <li>
           <strong>Unsplash</strong> provides the photos: our server sends it only the short photo
           descriptions the AI writes (like "latte art on a wooden table"), never your account
@@ -123,6 +134,10 @@ function PrivacyEn() {
         Photos are deleted together with their site or account. A copy may stay in the content
         delivery network's cache for up to an hour, after which its link stops working. Photos
         you added but never sent are deleted automatically after a day.
+      </p>
+      <p>
+        Submissions are deleted together with their site or account. You can disconnect
+        Telegram at any time in the account menu or with the /stop command in the bot.
       </p>
 
       <h3>Your rights</h3>
@@ -165,6 +180,16 @@ function PrivacyUk() {
           опублікованого сайту.
         </li>
         <li>
+          <strong>Заявки з ваших сайтів.</strong> Те, що відвідувачі ваших опублікованих сайтів
+          надсилають через форми (наприклад, ім’я, телефон, повідомлення). Ми зберігаємо ці
+          заявки і, якщо ви підключили Telegram, пересилаємо їх вам. Ці дані належать вам як
+          власнику сайту: ми лише зберігаємо й доставляємо їх.
+        </li>
+        <li>
+          <strong>Telegram.</strong> Якщо ви підключаєте Telegram, ми зберігаємо ідентифікатор
+          вашого чату з ботом VibeForge, щоб надсилати туди заявки.
+        </li>
+        <li>
           <strong>Записи про використання.</strong> Час кожної генерації та те, яка AI-модель її
           зробила. Так рахується денний ліміт.
         </li>
@@ -193,6 +218,7 @@ function PrivacyUk() {
           </strong>
         </li>
         <li><strong>Gmail</strong> надсилає коди для входу та відновлення пароля.</li>
+        <li><strong>Telegram</strong> доставляє заявки у ваш чат із ботом VibeForge.</li>
         <li>
           <strong>Unsplash</strong> надає фото: наш сервер надсилає йому лише короткі описи фото,
           які пише AI (наприклад, «latte art on a wooden table»), і ніколи — дані вашого акаунта.
@@ -219,6 +245,10 @@ function PrivacyUk() {
         Фото видаляються разом із сайтом або акаунтом. Копія фото може ще до години залишатися
         в кеші мережі доставки (CDN), після чого посилання на нього перестає працювати. Фото,
         які ви додали, але так і не надіслали, видаляються автоматично через добу.
+      </p>
+      <p>
+        Заявки видаляються разом із сайтом або акаунтом. Відключити Telegram можна будь-коли в
+        меню акаунта або командою /stop у боті.
       </p>
 
       <h3>Ваші права</h3>
@@ -255,6 +285,13 @@ function TermsEn() {
       <p>
         By adding photos you confirm that you have the right to use them (for example, they
         are yours, or a client agreed to it) and that they contain nothing illegal.
+      </p>
+
+      <h3>Forms on your sites</h3>
+      <p>
+        If your published site has a form, you are collecting its visitors' data and are
+        responsible for it: tell them who you are and why you need it. Do not use forms to
+        collect passwords, payment details or other sensitive information.
       </p>
 
       <h3>Rules</h3>
@@ -302,6 +339,13 @@ function TermsUk() {
       <p>
         Додаючи фото, ви підтверджуєте, що маєте право їх використовувати (наприклад, це ваші
         фото або фото клієнта, який на це погодився) і що на них немає незаконного вмісту.
+      </p>
+
+      <h3>Форми на ваших сайтах</h3>
+      <p>
+        Якщо на вашому опублікованому сайті є форма, ви збираєте дані відвідувачів і
+        відповідаєте за це: повідомте їм, хто ви і навіщо вам ці дані. Не використовуйте форми
+        для збору паролів, платіжних даних чи іншої чутливої інформації.
       </p>
 
       <h3>Правила</h3>

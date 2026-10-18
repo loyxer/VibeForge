@@ -101,3 +101,33 @@ grant select, insert, update, delete on public.site_photos to service_role;
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values ('site-photos', 'site-photos', true, 2000000, array['image/webp', 'image/jpeg', 'image/png'])
 on conflict (id) do nothing;
+
+-- Which Telegram chat gets an account's form submissions (backend/app/leads.py).
+-- `code` is the one-time code in the "Connect Telegram" link.
+create table if not exists public.telegram_links (
+  user_id uuid primary key references auth.users (id) on delete cascade,
+  chat_id bigint,
+  code text unique,
+  code_expires_at timestamptz,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.telegram_links enable row level security;
+grant select, insert, update, delete on public.telegram_links to service_role;
+
+-- What visitors sent through forms on published sites. Kept so nothing is
+-- lost when Telegram isn't connected or is down; goes with the site.
+create table if not exists public.form_submissions (
+  id bigint generated always as identity primary key,
+  project_id uuid not null references public.projects (id) on delete cascade,
+  user_id uuid not null references auth.users (id) on delete cascade,
+  fields jsonb not null,
+  delivered boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists form_submissions_user_created_idx
+  on public.form_submissions (user_id, created_at desc);
+
+alter table public.form_submissions enable row level security;
+grant select, insert, delete on public.form_submissions to service_role;

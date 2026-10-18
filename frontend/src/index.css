@@ -195,6 +195,33 @@ body {
   box-shadow: 0 4px 0 var(--line);
 }
 
+.account__telegram {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  width: 100%;
+  padding: 0.6rem 0;
+  border-top: 2px solid var(--soft);
+  border-bottom: 2px solid var(--soft);
+}
+
+.account__section {
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.account__row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.account__ok {
+  color: var(--green-text);
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
 .account__email {
   color: var(--muted);
   font-size: 0.85rem;
@@ -1451,4 +1478,14 @@ body {
   color: var(--sky-text);
   font-size: 0.72rem;
   font-weight: 800;
+}
+
+.telegram-hint {
+  margin: 0;
+  padding: 0.55rem 0.8rem;
+  border-radius: 12px;
+  background: var(--sky);
+  color: var(--sky-text);
+  font-size: 0.85rem;
+  font-weight: 700;
 }
