@@ -7,6 +7,15 @@ import StylePicker from './StylePicker'
 
 type Params = Record<string, string | number>
 
+// Ready-made requests for someone who doesn't know what to write yet.
+const EXAMPLES: { label: Key; prompt: Key }[] = [
+  { label: 'examples.cafe', prompt: 'examples.cafePrompt' },
+  { label: 'examples.photographer', prompt: 'examples.photographerPrompt' },
+  { label: 'examples.guesthouse', prompt: 'examples.guesthousePrompt' },
+  { label: 'examples.salon', prompt: 'examples.salonPrompt' },
+  { label: 'examples.trainer', prompt: 'examples.trainerPrompt' },
+]
+
 // What the person typed, a reply of ours, or an error — either a key of
 // ours or the server's English text. Kept untranslated so switching the
 // language re-translates the whole conversation.
@@ -61,11 +70,13 @@ export default function Chat({
   const uploading = tray.some((p) => p.status === 'uploading')
   const photoErrors = tray.flatMap((p) => (p.error ? [p.error] : []))
   const list = useRef<HTMLDivElement>(null)
+  const box = useRef<HTMLTextAreaElement>(null)
 
   // Keep the newest message (and the live progress line) in view — by
   // scrolling the message list only, never the whole page.
   useEffect(() => {
-    if (list.current) list.current.scrollTop = list.current.scrollHeight
+    // An empty chat starts at the top, where the greeting is.
+    if (list.current && messages.length) list.current.scrollTop = list.current.scrollHeight
   }, [messages, loading, progress])
 
   const say = (text: string, params?: Params) => (isKey(text) ? t(text, params) : t.server(text))
@@ -100,6 +111,26 @@ export default function Chat({
           <div className="reply">
             <Mascot />
             <div className="bubble bubble--assistant">{t('chat.empty')}</div>
+          </div>
+        )}
+        {messages.length === 0 && isNewSite && (
+          <div className="examples">
+            <div className="chips" role="group" aria-label={t('examples.title')}>
+              {EXAMPLES.map((e) => (
+                <button
+                  key={e.label}
+                  type="button"
+                  className="chip"
+                  onClick={() => {
+                    // Filled in, not sent: the person can adjust it first.
+                    setInput(t(e.prompt))
+                    box.current?.focus()
+                  }}
+                >
+                  {t(e.label)}
+                </button>
+              ))}
+            </div>
           </div>
         )}
         {messages.map((m, i) =>
@@ -146,6 +177,7 @@ export default function Chat({
           {isNewSite ? t('chat.labelNew') : t('chat.labelEdit')}
         </label>
         <textarea
+          ref={box}
           id="prompt"
           value={input}
           onChange={(e) => setInput(e.target.value)}

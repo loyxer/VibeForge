@@ -24,7 +24,7 @@ const en = {
 
   'chat.newSite': 'New site',
   'chat.newSiteButton': '+ New site',
-  'chat.empty': 'Describe the site you want, e.g. “a landing page for a coffee shop with a menu and prices”.',
+  'chat.empty': 'Describe your site, or start from an idea:',
   'chat.labelNew': 'What site shall we make?',
   'chat.labelEdit': 'What should change?',
   'chat.placeholderNew': 'e.g. a landing page for a coffee shop with a menu',
@@ -34,6 +34,22 @@ const en = {
   'chat.sending': 'Building…',
   'chat.style': 'Site style',
   'chat.mascot': 'Spark, the VibeForge helper',
+  'examples.title': 'Ideas to start from',
+  'examples.cafe': '☕ Café',
+  'examples.cafePrompt':
+    'A site for a cosy café called “Grain”: a hero with a photo of coffee, a menu with prices (coffee, desserts, breakfasts), about us, guest reviews, opening hours and contacts.',
+  'examples.photographer': '📷 Photographer',
+  'examples.photographerPrompt':
+    'A portfolio for Helen, a wedding photographer: a big hero, a gallery of her work where photos open full screen, packages with prices, reviews from couples and a booking form.',
+  'examples.guesthouse': '🏡 Guesthouse',
+  'examples.guesthousePrompt':
+    'A site for a family guesthouse in the mountains: rooms with prices per night, a price calculator for the stay, things to do in summer and winter, a gallery, frequently asked questions and a booking form.',
+  'examples.salon': '💇 Beauty salon',
+  'examples.salonPrompt':
+    'A site for the “Lavender” beauty salon: services with prices (haircuts, manicure, facials), the stylists with photos, reviews, booking through a form, and contacts.',
+  'examples.trainer': '🏋️ Personal trainer',
+  'examples.trainerPrompt':
+    'A landing page for Andrew, a personal trainer: training programmes with prices, client results, a class schedule, answers to common questions and a button to book a free first session.',
 
   'progress.starting': 'Spark is getting started…',
   'progress.writing': 'Spark is writing your site… {kb} KB',
@@ -198,7 +214,7 @@ const uk: Record<Key, string> = {
 
   'chat.newSite': 'Новий сайт',
   'chat.newSiteButton': '+ Новий сайт',
-  'chat.empty': 'Опиши сайт, який хочеш, наприклад: «лендинг для кав’ярні з меню та цінами».',
+  'chat.empty': 'Опиши свій сайт або почни з ідеї:',
   'chat.labelNew': 'Який сайт створимо?',
   'chat.labelEdit': 'Що змінити?',
   'chat.placeholderNew': 'наприклад: лендинг для кав’ярні з меню',
@@ -208,6 +224,22 @@ const uk: Record<Key, string> = {
   'chat.sending': 'Створюю…',
   'chat.style': 'Стиль сайту',
   'chat.mascot': 'Іскра, помічниця VibeForge',
+  'examples.title': 'Ідеї для початку',
+  'examples.cafe': '☕ Кав’ярня',
+  'examples.cafePrompt':
+    'Сайт для затишної кав’ярні «Зерно»: головний екран із фото кави, меню з цінами (кава, десерти, сніданки), про нас, відгуки гостей, години роботи й контакти.',
+  'examples.photographer': '📷 Фотограф',
+  'examples.photographerPrompt':
+    'Портфоліо весільної фотографині Олени: великий головний екран, галерея робіт, де фото відкриваються на весь екран, пакети послуг із цінами, відгуки пар і форма заявки.',
+  'examples.guesthouse': '🏡 Садиба',
+  'examples.guesthousePrompt':
+    'Сайт сімейної садиби в горах: номери з цінами за ніч, калькулятор вартості проживання, чим зайнятися влітку й узимку, галерея, часті питання і форма бронювання.',
+  'examples.salon': '💇 Салон краси',
+  'examples.salonPrompt':
+    'Сайт салону краси «Лаванда»: послуги з цінами (стрижки, манікюр, догляд за обличчям), майстри з фото, відгуки, запис через форму і контакти.',
+  'examples.trainer': '🏋️ Тренер',
+  'examples.trainerPrompt':
+    'Лендинг персонального тренера Андрія: програми тренувань із цінами, результати клієнтів, розклад занять, відповіді на часті питання і кнопка запису на перше безкоштовне заняття.',
 
   'progress.starting': 'Іскра береться до роботи…',
   'progress.writing': 'Іскра пише сайт… {kb} КБ',

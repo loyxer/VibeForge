@@ -617,6 +617,16 @@ body {
   font-weight: 800;
 }
 
+.examples {
+  padding-left: 2.6rem; /* lines up with the greeting, past the mascot */
+}
+
+.examples .chip {
+  min-height: 30px;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.78rem;
+}
+
 .chips {
   display: flex;
   flex-wrap: wrap;
