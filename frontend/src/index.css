@@ -1541,3 +1541,22 @@ a.btn {
   border-color: var(--sky-edge);
   background: #ffffff;
 }
+
+/* Photos being dragged over the chat. */
+.chat--dragging {
+  outline: 3px dashed var(--sky-edge);
+  outline-offset: -6px;
+}
+
+.chat__drop {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 0.7rem;
+  border-radius: 12px;
+  background: #ddf4ff;
+  color: #0f6aa3;
+  font-weight: 800;
+  text-align: center;
+  pointer-events: none;
+}

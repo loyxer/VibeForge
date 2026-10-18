@@ -70,6 +70,11 @@ export default function Chat({
   const uploading = tray.some((p) => p.status === 'uploading')
   const photoErrors = tray.flatMap((p) => (p.error ? [p.error] : []))
   const list = useRef<HTMLDivElement>(null)
+  const canAddPhotos = tray.length < MAX_PHOTOS_PER_SITE && !loading
+  // Dragging files over the chat: enter/leave also fire for every child
+  // element, so count them instead of toggling on each event.
+  const [dragging, setDragging] = useState(false)
+  const dragDepth = useRef(0)
   const box = useRef<HTMLTextAreaElement>(null)
 
   // Keep the newest message (and the live progress line) in view — by
@@ -88,13 +93,48 @@ export default function Chat({
     setInput('')
   }
 
+  const hasFiles = (e: React.DragEvent) => Array.from(e.dataTransfer.types).includes('Files')
+
+  const dragHandlers = {
+    onDragEnter(e: React.DragEvent) {
+      if (!hasFiles(e)) return
+      e.preventDefault()
+      dragDepth.current += 1
+      setDragging(true)
+    },
+    onDragOver(e: React.DragEvent) {
+      if (hasFiles(e)) e.preventDefault() // required, or the browser opens the file instead
+    },
+    onDragLeave(e: React.DragEvent) {
+      if (!hasFiles(e)) return
+      dragDepth.current = Math.max(0, dragDepth.current - 1)
+      if (dragDepth.current === 0) setDragging(false)
+    },
+    onDrop(e: React.DragEvent) {
+      if (!hasFiles(e)) return
+      e.preventDefault()
+      dragDepth.current = 0
+      setDragging(false)
+      const images = Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith('image/'))
+      if (canAddPhotos && images.length) onAddPhotos(images)
+    },
+  }
+
+  function handlePaste(e: React.ClipboardEvent) {
+    const images = Array.from(e.clipboardData.files).filter((f) => f.type.startsWith('image/'))
+    if (!images.length) return // plain text pastes as usual
+    e.preventDefault()
+    if (canAddPhotos) onAddPhotos(images)
+  }
+
   function handleSubmit(event: FormEvent) {
     event.preventDefault()
     submitPrompt()
   }
 
   return (
-    <section className="chat card">
+    <section className={`chat card${dragging ? ' chat--dragging' : ''}`} {...dragHandlers}>
+      {dragging && <div className="chat__drop">{t('photos.drop')}</div>}
       <div className="chat__head">
         <h2 className="chat__title" title={title}>
           {title}
@@ -181,6 +221,7 @@ export default function Chat({
           id="prompt"
           value={input}
           onChange={(e) => setInput(e.target.value)}
+          onPaste={handlePaste}
           placeholder={isNewSite ? t('chat.placeholderNew') : t('chat.placeholderEdit')}
           rows={3}
           onKeyDown={(e) => {
@@ -210,14 +251,14 @@ export default function Chat({
         )}
         {photoErrors.length > 0 && <p className="chat__photo-error">{say(photoErrors[0])}</p>}
         <div className="chat__photos-row">
-          <label className={`btn btn--small photo-add${tray.length >= MAX_PHOTOS_PER_SITE || loading ? ' photo-add--disabled' : ''}`}>
+          <label className={`btn btn--small photo-add${canAddPhotos ? '' : ' photo-add--disabled'}`}>
             📎 {t('photos.add')}
             <input
               type="file"
               accept="image/*"
               multiple
               hidden
-              disabled={tray.length >= MAX_PHOTOS_PER_SITE || loading}
+              disabled={!canAddPhotos}
               onChange={(e) => {
                 onAddPhotos(Array.from(e.target.files ?? []))
                 e.target.value = '' // picking the same file again still fires
