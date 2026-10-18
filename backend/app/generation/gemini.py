@@ -129,7 +129,10 @@ at 375px wide:
   words wrap (overflow-wrap: anywhere).
 - If the navigation links are hidden on small screens, the header must have
   a menu button (☰) that opens and closes them with a few lines of JS.
-  Never hide the menu with nothing to replace it.
+  Never hide the menu with nothing to replace it. The opened menu must not
+  cover that button (give the button position: relative and a higher
+  z-index than the menu), so the same button can close it again; tapping
+  a menu link closes it too.
 
 JavaScript must never crash: one error stops every script on the page. Run
 setup code after the page has loaded, check that an element exists before
