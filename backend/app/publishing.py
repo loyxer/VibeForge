@@ -9,6 +9,7 @@ routes.py serves the same thing for local development.
 Same two backends as projects.py: the `published_sites` table in Supabase
 (see backend/supabase/schema.sql) or a local JSON file.
 """
+import html as html_lib
 import json
 import os
 import re
@@ -45,16 +46,17 @@ def publish(project_id: str, owner: str) -> str:
     html = projects.get_project(project_id, owner)["html"]
     now = datetime.now(timezone.utc).isoformat()
     if config := supabase.config():
-        slug = _sb_slug(config, project_id, owner)
+        existing = _sb_slug(config, project_id, owner)
+        slug = existing or _new_slug()
+        html = with_link_preview(html, public_url(slug))
         with _rest(config) as client:
-            if slug:
+            if existing:
                 res = client.patch(
                     "/published_sites",
                     params={"slug": f"eq.{slug}"},
                     json={"html": html, "published_at": now},
                 )
             else:
-                slug = _new_slug()
                 res = client.post(
                     "/published_sites",
                     json={
@@ -71,9 +73,79 @@ def publish(project_id: str, owner: str) -> str:
         data = _read()
         slug = next((s for s, p in data.items() if p["project_id"] == project_id), None)
         slug = slug or _new_slug()
+        html = with_link_preview(html, public_url(slug))
         data[slug] = {"project_id": project_id, "owner": owner, "html": html, "published_at": now}
         _write(data)
         return slug
+
+
+# What Telegram, Viber, Facebook and the rest show for a shared link: they
+# read these tags from the page. The AI sometimes writes its own with
+# made-up image paths, so ours replace them.
+_PREVIEW_TAG = re.compile(r'\s*<meta\s[^>]*(?:property|name)="(?:og:|twitter:)[^"]*"[^>]*>', re.I)
+
+
+def with_link_preview(html: str, url: str) -> str:
+    head_end = re.search(r"</head>", html, re.I)
+    if not head_end:
+        return html
+    html = _PREVIEW_TAG.sub("", html)
+    title = _text_of(r"<title[^>]*>(.*?)</title>", html) or _text_of(r"<h1[^>]*>(.*?)</h1>", html)
+    description = _meta_description(html) or _first_paragraph(html)
+    image = _first_photo(html)
+    tags = [
+        ("og:type", "website"),
+        ("og:url", url),
+        ("og:title", title),
+        ("og:description", description),
+        ("og:image", image),
+        ("twitter:card", "summary_large_image" if image else "summary"),
+    ]
+    block = "".join(
+        f'\n<meta {"name" if key.startswith("twitter") else "property"}="{key}" '
+        f'content="{html_lib.escape(value, quote=True)}">'
+        for key, value in tags
+        if value
+    )
+    head_end = re.search(r"</head>", html, re.I)
+    return html[: head_end.start()] + block + "\n" + html[head_end.start() :]
+
+
+def _text_of(pattern: str, html: str) -> str:
+    m = re.search(pattern, html, re.I | re.S)
+    return _plain(m.group(1)) if m else ""
+
+
+def _plain(fragment: str, limit: int = 200) -> str:
+    text = " ".join(html_lib.unescape(re.sub(r"<[^>]+>", " ", fragment)).split())
+    if len(text) <= limit:
+        return text
+    return text[:limit].rsplit(" ", 1)[0] + "…"
+
+
+def _meta_description(html: str) -> str:
+    m = re.search(r'<meta\s[^>]*name="description"[^>]*>', html, re.I)
+    content = re.search(r'content="([^"]*)"', m.group(0)) if m else None
+    return _plain(content.group(1)) if content else ""
+
+
+def _first_paragraph(html: str) -> str:
+    body = re.sub(r"<(script|style)\b.*?</\1>", "", html, flags=re.I | re.S)
+    for m in re.finditer(r"<p\b[^>]*>(.*?)</p>", body, re.I | re.S):
+        text = _plain(m.group(1))
+        if len(text) >= 40:
+            return text
+    return ""
+
+
+def _first_photo(html: str) -> str:
+    """The first real photo on the page (ours or Unsplash's), as a full URL."""
+    m = re.search(
+        r'<img\b[^>]*\ssrc="(https://[^"]+)"|background-image:\s*url\([\'"]?(https://[^\'")]+)',
+        html,
+        re.I,
+    )
+    return html_lib.unescape(m.group(1) or m.group(2)) if m else ""
 
 
 def unpublish(project_id: str, owner: str) -> None:
